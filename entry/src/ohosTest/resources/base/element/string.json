@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "ohostest_module_desc",
+      "value": "AtomGit test module"
+    },
+    {
+      "name": "TestAbility_desc",
+      "value": "AtomGit UI test ability"
+    },
+    {
+      "name": "TestAbility_label",
+      "value": "AtomGitTest"
+    }
+  ]
+}

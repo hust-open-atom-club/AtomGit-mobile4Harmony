@@ -2,6 +2,9 @@
   "module": {
     "name": "entry_test",
     "type": "feature",
+    "srcEntry": "./ets/testability/TestAbility.ets",
+    "description": "$string:ohostest_module_desc",
+    "mainElement": "TestAbility",
     "deviceTypes": [
       "phone",
       "tablet",
@@ -9,6 +12,19 @@
       "wearable"
     ],
     "deliveryWithInstall": true,
-    "installationFree": false
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "TestAbility",
+        "srcEntry": "./ets/testability/TestAbility.ets",
+        "description": "$string:TestAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:TestAbility_label",
+        "startWindowIcon": "$media:layered_image",
+        "startWindowBackground": "$color:ohostest_start_window_background",
+        "exported": false
+      }
+    ]
   }
 }
