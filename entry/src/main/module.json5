@@ -4,15 +4,31 @@
     "type": "entry",
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
+    // 启用系统级沉浸光感材质（UIMaterial）：弹窗/菜单等系统浮层默认启用玻璃，
+    // 组件级 ImmersiveMaterial 的光感反馈也依赖此开关（对齐官方 multi-news-read 示例）
+    "metadata": [
+      {
+        "name": "ohos.arkui.UIMaterial.state",
+        "value": "enable"
+      }
+    ],
+    // HDS（UIDesignKit）的沉浸光感组件不在 wearable 上提供，
+    // 本应用形态为手机 / 平板 / 2in1，移除 wearable 避免无效适配与 syscap 告警
     "deviceTypes": [
       "phone",
       "tablet",
-      "2in1",
-      "wearable"
+      "2in1"
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    // ohos.permission.INTERNET 是 system_grant 普通权限，安装时静默授予，
+    // 但必须在此声明，否则真机上所有 HTTP 请求直接失败（code 0 / 网络连接不可用）
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      }
+    ],
     "abilities": [
       {
         "name": "EntryAbility",
