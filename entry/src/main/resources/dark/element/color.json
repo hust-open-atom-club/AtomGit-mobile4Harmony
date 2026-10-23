@@ -2,7 +2,115 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#000000"
+      "value": "#0B0E14"
+    },
+    {
+      "name": "ag_background",
+      "value": "#0B0E14"
+    },
+    {
+      "name": "ag_panel",
+      "value": "#D9161B24"
+    },
+    {
+      "name": "ag_surface",
+      "value": "#161B24"
+    },
+    {
+      "name": "ag_surface_elevated",
+      "value": "#1E2430"
+    },
+    {
+      "name": "ag_surface_sunken",
+      "value": "#0F131A"
+    },
+    {
+      "name": "ag_card",
+      "value": "#161B24"
+    },
+    {
+      "name": "ag_card_border",
+      "value": "#1FFFFFFF"
+    },
+    {
+      "name": "ag_text_primary",
+      "value": "#F2F4F8"
+    },
+    {
+      "name": "ag_text_secondary",
+      "value": "#B4BCCB"
+    },
+    {
+      "name": "ag_text_tertiary",
+      "value": "#7D8799"
+    },
+    {
+      "name": "ag_text_on_accent",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "ag_accent",
+      "value": "#6EA8FF"
+    },
+    {
+      "name": "ag_accent_strong",
+      "value": "#8CBEFF"
+    },
+    {
+      "name": "ag_accent_soft",
+      "value": "#336EA8FF"
+    },
+    {
+      "name": "ag_accent_glow",
+      "value": "#556EA8FF"
+    },
+    {
+      "name": "ag_hero_start",
+      "value": "#16233F"
+    },
+    {
+      "name": "ag_hero_end",
+      "value": "#0B0E14"
+    },
+    {
+      "name": "ag_hero_orb",
+      "value": "#4D6EA8FF"
+    },
+    {
+      "name": "ag_error",
+      "value": "#FF6B60"
+    },
+    {
+      "name": "ag_warning",
+      "value": "#F0B429"
+    },
+    {
+      "name": "ag_success",
+      "value": "#3FB950"
+    },
+    {
+      "name": "ag_separator",
+      "value": "#2A303B"
+    },
+    {
+      "name": "ag_glass_border",
+      "value": "#26FFFFFF"
+    },
+    {
+      "name": "ag_glass_shadow",
+      "value": "#66000000"
+    },
+    {
+      "name": "ag_nav_shadow",
+      "value": "#80000000"
+    },
+    {
+      "name": "ag_chip_bg",
+      "value": "#26FFFFFF"
+    },
+    {
+      "name": "ag_skeleton",
+      "value": "#26FFFFFF"
     }
   ]
 }
