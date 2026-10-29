@@ -191,6 +191,9 @@ export class SessionStore {
   }
 
   async logout(): Promise<void> {
+    await this.cache.clearCurrentAccount();
+    await this.settings.clear();
+    await this.cipher.remove();
     this.guard.clear();
     this.token = '';
     this.user = undefined;
@@ -203,9 +206,6 @@ export class SessionStore {
     this.errorMessage = '';
     this.needReLogin = false;
     this.state = LoadState.Idle;
-    await this.cipher.remove();
-    await this.cache.clearCurrentAccount();
-    await this.settings.clear();
   }
 }
 
