@@ -248,7 +248,7 @@ export default function viewModelTest() {
 
     it('checks_accumulate_across_pages', 0, () => {
       const repo = new FakeRepository();
-      const run = new CheckRun(1, 'build', 'main', CheckStatus.Success, 'COMPLETED',
+      const run = new CheckRun('run-1', 'build', 'main', CheckStatus.Success, 'COMPLETED',
         'SUCCESS', 'Push', '', '');
       repo.checksResult = new Page<CheckRun>([run], true, PagingState.first(PagingType.Offset));
       const b = new RepoBrowseStore(repo);

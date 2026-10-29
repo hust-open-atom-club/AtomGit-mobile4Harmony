@@ -83,13 +83,20 @@ export default function repositoryTest() {
       // { total_count, workflow_runs } 包裹
       const http = new FakeHttp();
       http.onJson('/api/v8/repos/o/r/actions/runs',
-        '{"total_count":1,"workflow_runs":[{"id":7,"status":"COMPLETED",' + '"conclusion":"SUCCESS","workflow_name":"build","head_branch":"main"}]}');
+        '{"total_count":2,"workflow_runs":[' +
+        '{"workflow_run_id":"run-a","id":7,"status":"COMPLETED","title":"build",' +
+        '"workflow_name":"build","head_branch":"main","start_time":"2026-01-01T00:00:00Z"},' +
+        '{"workflow_run_id":"run-b","id":7,"status":"COMPLETED","title":"test",' +
+        '"workflow_name":"test","head_branch":"main","start_time":"2026-01-02T00:00:00Z"}]}');
       const repo = new AtomGitRepository(http);
       return repo.checkRuns('o', 'r', 'master', 1, 20).then((page) => {
-        expect(page.items.length).assertEqual(1);
-        expect(page.items[0].id).assertEqual(7);
+        expect(page.items.length).assertEqual(2);
+        expect(page.items[0].id).assertEqual('run-a');
+        expect(page.items[1].id).assertEqual('run-b');
+        expect(page.items[0].id === page.items[1].id).assertFalse();
         expect(page.items[0].name).assertEqual('build');
         expect(page.items[0].status).assertEqual(CheckStatus.Success);
+        expect(page.items[0].createdAt).assertEqual('2026-01-01T00:00:00Z');
       });
     });
 
