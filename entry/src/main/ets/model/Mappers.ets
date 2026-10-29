@@ -132,13 +132,25 @@ export function normalizeCheckStatus(status: string, conclusion: string): CheckS
   return CheckStatus.Unknown;
 }
 
+function runIdentity(d: WorkflowRunDto): string {
+  const explicit = str(d.workflow_run_id);
+  if (explicit.length > 0) {
+    return explicit;
+  }
+  const numeric = d.id;
+  if (numeric !== undefined && numeric !== null) {
+    return numeric.toString();
+  }
+  return str(d.title, str(d.workflow_name, 'run'));
+}
+
 export function toCheckRun(d: WorkflowRunDto): CheckRun {
   const rawStatus = str(d.status);
   const rawConclusion = str(d.conclusion);
-  return new CheckRun(count(d.id),
-    str(d.workflow_name, str(d.display_title, str(d.name, 'workflow'))),
+  return new CheckRun(runIdentity(d),
+    str(d.title, str(d.display_title, str(d.workflow_name, str(d.name, 'workflow')))),
     str(d.head_branch),
     normalizeCheckStatus(rawStatus, rawConclusion),
     rawStatus, rawConclusion, str(d.event), str(d.html_url),
-    str(d.created_at));
+    str(d.start_time, str(d.created_at)));
 }

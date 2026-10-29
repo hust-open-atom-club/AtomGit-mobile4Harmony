@@ -104,6 +104,9 @@ export interface ContentsFileDto {
 // 响应被 { total_count, workflow_runs } 包裹，不能当裸数组解析
 export interface WorkflowRunDto {
   id?: number;
+  workflow_run_id?: string;
+  title?: string;
+  start_time?: string;
   name?: string;
   display_title?: string;
   workflow_id?: number;

@@ -150,7 +150,7 @@ export enum CheckStatus {
 }
 
 export class CheckRun {
-  readonly id: number;
+  readonly id: string;
   readonly name: string;
   readonly branch: string;
   readonly status: CheckStatus;
@@ -160,7 +160,7 @@ export class CheckRun {
   readonly htmlUrl: string;
   readonly createdAt: string;
 
-  constructor(id: number, name: string, branch: string, status: CheckStatus,
+  constructor(id: string, name: string, branch: string, status: CheckStatus,
     rawStatus: string, rawConclusion: string, event: string,
     htmlUrl: string, createdAt: string) {
     this.id = id;
