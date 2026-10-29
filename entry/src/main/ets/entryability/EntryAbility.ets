@@ -1,6 +1,6 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { Configuration } from '@ohos.app.ability.Configuration';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 
@@ -154,6 +154,9 @@ export default class EntryAbility extends UIAbility {
   private applySystemBarStyle(): void {
     const win: window.Window | undefined = this.mainWindow;
     if (win === undefined) {
+      return;
+    }
+    if (deviceInfo.deviceType === '2in1') {
       return;
     }
     try {
