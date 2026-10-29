@@ -1,5 +1,6 @@
 import { uiMaterial } from '@kit.ArkUI';
 import { hdsMaterial, SystemMaterialParams } from '@kit.UIDesignKit';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 export function supportsHdsMaterial(): boolean {
   try {
@@ -20,13 +21,32 @@ export function hdsAdaptiveMaterial(): SystemMaterialParams | undefined {
   return params;
 }
 
-export function glassMaterial(style: uiMaterial.ImmersiveStyle,
+export enum GlassStyle {
+  REGULAR = 'regular',
+  THIN = 'thin',
+  ULTRA_THIN = 'ultra-thin'
+}
+
+function toImmersiveStyle(style: GlassStyle): uiMaterial.ImmersiveStyle {
+  if (style === GlassStyle.THIN) {
+    return uiMaterial.ImmersiveStyle.THIN;
+  }
+  if (style === GlassStyle.ULTRA_THIN) {
+    return uiMaterial.ImmersiveStyle.ULTRA_THIN;
+  }
+  return uiMaterial.ImmersiveStyle.REGULAR;
+}
+
+export function glassMaterial(style: GlassStyle,
   isDark: boolean): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
   if (!uiMaterial.isImmersiveMaterialSupported()) {
     return undefined;
   }
   const opts: uiMaterial.ImmersiveOptions = {
-    style: style,
+    style: toImmersiveStyle(style),
     materialColor: Color.Transparent,
     interactive: true
   };
@@ -38,11 +58,14 @@ export function glassMaterial(style: uiMaterial.ImmersiveStyle,
 }
 
 export function chipMaterial(isDark: boolean): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
   if (!uiMaterial.isImmersiveMaterialSupported()) {
     return undefined;
   }
   const opts: uiMaterial.ImmersiveOptions = {
-    style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+    style: toImmersiveStyle(GlassStyle.ULTRA_THIN),
     materialColor: Color.Transparent,
     interactive: true
   };
@@ -54,7 +77,11 @@ export function chipMaterial(isDark: boolean): uiMaterial.Material | undefined {
 }
 
 export function glassOrBackground(glass: uiMaterial.Material | undefined): ResourceColor {
-  return glass === undefined ? $r('app.color.ag_surface') : Color.Transparent;
+  return glass === undefined ? $r('app.color.ag_panel') : Color.Transparent;
+}
+
+export function glassSurfaceBlur(glass: uiMaterial.Material | undefined): BlurStyle {
+  return glass === undefined ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE;
 }
 
 export function glassBorderColor(): ResourceColor {

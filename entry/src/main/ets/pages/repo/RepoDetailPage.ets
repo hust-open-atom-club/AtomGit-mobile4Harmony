@@ -18,7 +18,7 @@ import { DisplayMetrics } from '../../common/DisplayMetrics';
 import { ThemeStore } from '../../common/ThemeStore';
 import { Dimens, FontSize, Radius } from '../../components/DesignTokens';
 import { RepoMetaChips } from '../../components/RepoMetaChips';
-import { glassMaterial, glassOrBackground } from '../../components/Materials';
+import { GlassStyle, glassMaterial, glassOrBackground, glassSurfaceBlur } from '../../components/Materials';
 import { EmptyView, ErrorView, toneColor } from '../../components/StatusViews';
 
 const SEGMENT_TRANSITION: TransitionEffect =
@@ -47,7 +47,7 @@ export struct RepoDetailPage {
   private readonly spring: AnimateParam = { curve: curves.springMotion(0.4, 0.8) };
 
   aboutToAppear(): void {
-    this.glass = glassMaterial(uiMaterial.ImmersiveStyle.THIN, this.theme.isDark);
+    this.glass = glassMaterial(GlassStyle.THIN, this.theme.isDark);
     if (this.metrics.isExpanded() && this.currentTab === 1) {
       this.currentTab = 0;
     }
@@ -55,7 +55,7 @@ export struct RepoDetailPage {
 
   @Monitor('theme.isDark')
   onThemeChange(): void {
-    this.glass = glassMaterial(uiMaterial.ImmersiveStyle.THIN, this.theme.isDark);
+    this.glass = glassMaterial(GlassStyle.THIN, this.theme.isDark);
   }
 
   private async pickEntry(e: RepoEntry): Promise<void> {
@@ -280,6 +280,7 @@ export struct RepoDetailPage {
       bottom: Dimens.sm
     })
     .backgroundColor(glassOrBackground(this.glass))
+    .backgroundBlurStyle(glassSurfaceBlur(this.glass))
     .systemMaterial(this.glass)
   }
 

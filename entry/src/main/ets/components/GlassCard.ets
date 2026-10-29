@@ -2,7 +2,7 @@ import { uiMaterial } from '@kit.ArkUI';
 
 import { ThemeStore } from '../common/ThemeStore';
 import { Dimens, Elevation, Radius } from './DesignTokens';
-import { glassBorderColor, glassMaterial, glassOrBackground } from './Materials';
+import { GlassStyle, glassBorderColor, glassMaterial, glassOrBackground, glassSurfaceBlur } from './Materials';
 
 @Builder
 function glassCardEmpty(): void {
@@ -12,7 +12,7 @@ function glassCardEmpty(): void {
 export struct GlassCard {
   @BuilderParam content: () => void = glassCardEmpty;
   @Param radius: number = Radius.card;
-  @Param style: uiMaterial.ImmersiveStyle = uiMaterial.ImmersiveStyle.REGULAR;
+  @Param style: GlassStyle = GlassStyle.REGULAR;
   @Param cardPadding: Padding = {
     left: Dimens.lg, right: Dimens.lg, top: Dimens.lg, bottom: Dimens.lg
   };
@@ -54,6 +54,7 @@ export struct GlassCard {
     .borderRadius(this.radius)
     .padding(this.cardPadding)
     .backgroundColor(glassOrBackground(this.glass))
+    .backgroundBlurStyle(glassSurfaceBlur(this.glass))
     .border({ width: 1, color: this.cardBorderColor() })
     .shadow(this.cardShadow())
     .systemMaterial(this.glass)

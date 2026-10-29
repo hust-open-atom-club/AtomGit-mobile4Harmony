@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 import { ApiError, ApiErrorKind, buildApiError } from '../common/ApiError';
@@ -212,7 +212,11 @@ function toRequestMethod(m: HttpMethod): http.RequestMethod {
     return http.RequestMethod.PUT;
   }
   if (m === HttpMethod.PATCH) {
-    return http.RequestMethod.PATCH;
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      return http.RequestMethod.PATCH;
+    }
+    throw new ApiError(ApiErrorKind.MethodNotAllowed, 0, 0,
+      'patch is not supported on this API level', '', '');
   }
   if (m === HttpMethod.DELETE) {
     return http.RequestMethod.DELETE;
