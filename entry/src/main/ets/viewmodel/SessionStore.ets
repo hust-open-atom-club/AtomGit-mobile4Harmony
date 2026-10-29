@@ -43,6 +43,7 @@ export class SessionStore {
 
   private token: string = '';
   private page: number = 1;
+  private loadingRepos: boolean = false;
   private readonly perPage: number = 20;
 
   private readonly dataSource: SessionReadRepository;
@@ -151,18 +152,22 @@ export class SessionStore {
 
   // 平台可能返回短于 per_page 的非终页，空页才终止
   async loadRepos(): Promise<void> {
-    if (!this.hasMoreRepos) {
+    if (!this.hasMoreRepos || this.loadingRepos) {
       return;
     }
+    this.loadingRepos = true;
+    const page: number = this.page;
     try {
-      const res = await this.dataSource.myRepos(this.page, this.perPage);
-      this.repos = this.page === 1 ? res.items : this.repos.concat(res.items);
+      const res = await this.dataSource.myRepos(page, this.perPage);
+      this.repos = page === 1 ? res.items : this.repos.concat(res.items);
       this.hasMoreRepos = res.items.length > 0;
-      this.page++;
+      this.page = page + 1;
       this.state = LoadState.Ready;
     } catch (err) {
       this.errorMessage = toUserMessage(err);
       this.state = LoadState.Error;
+    } finally {
+      this.loadingRepos = false;
     }
   }
 
