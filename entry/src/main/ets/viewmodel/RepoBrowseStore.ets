@@ -26,6 +26,9 @@ export class RepoBrowseStore {
     this.errorMessage = '';
     this.currentPath = '';
     this.file = undefined;
+    this.repo = undefined;
+    this.entries = [];
+    this.checks = [];
     this.ciPage = 1;
     try {
       this.repo = await this.dataSource.repoDetail(owner, name);
@@ -47,6 +50,7 @@ export class RepoBrowseStore {
     try {
       this.entries = await this.dataSource.listDir(this.repo.owner, this.repo.name, path);
       this.currentPath = path;
+      this.errorMessage = '';
       this.state = LoadState.Ready;
     } catch (err) {
       this.errorMessage = err instanceof ApiError ? err.toUserMessage() : '打开目录失败';
@@ -71,6 +75,7 @@ export class RepoBrowseStore {
     this.state = LoadState.Loading;
     try {
       this.file = await this.dataSource.fileContent(this.repo.owner, this.repo.name, path);
+      this.errorMessage = '';
       this.state = LoadState.Ready;
     } catch (err) {
       this.errorMessage = err instanceof ApiError ? err.toUserMessage() : '打开文件失败';
@@ -91,6 +96,7 @@ export class RepoBrowseStore {
         this.repo.defaultBranch, this.ciPage, 20);
       this.checks = this.ciPage === 1 ? res.items : this.checks.concat(res.items);
       this.ciPage++;
+      this.errorMessage = '';
     } catch (err) {
       this.errorMessage = err instanceof ApiError ? err.toUserMessage() : '流水线状态不可用';
     }

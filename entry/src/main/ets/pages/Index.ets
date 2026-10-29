@@ -11,7 +11,7 @@ import { GlassCard } from '../components/GlassCard';
 import { glassBorderColor } from '../components/Materials';
 import { ErrorView } from '../components/StatusViews';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
-import { SessionStore } from '../viewmodel/SessionStore';
+import { LoadState, SessionStore } from '../viewmodel/SessionStore';
 import { ActivityPage } from './activity/ActivityPage';
 import { NotificationPage } from './notification/NotificationPage';
 import { LoginPage } from './login/LoginPage';
@@ -115,8 +115,11 @@ struct Index {
     if (b === undefined) {
       return;
     }
-    this.pathStack.pushPathByName(REPO_DETAIL_ROUTE, owner + '/' + name);
     await b.open(owner, name);
+    if (b.state !== LoadState.Ready) {
+      return;
+    }
+    this.pathStack.pushPathByName(REPO_DETAIL_ROUTE, owner + '/' + name);
   }
 
   private selectTab(index: number): void {
