@@ -190,17 +190,7 @@ export class HttpClient implements HttpPort {
   }
 
   private asApiError(err: Object, url: string): ApiError {
-    const be = err as BusinessError;
-    if (be !== undefined && be !== null && be.code !== undefined) {
-      const code = be.code;
-      // 12xxxxxx / 13xxxxxx 多为网络与超时类
-      let kind = ApiErrorKind.Network;
-      if (code === 2090001) {
-        kind = ApiErrorKind.Canceled;
-      }
-      return new ApiError(kind, 0, code, be.message ?? '', '', redactUrl(url));
-    }
-    return new ApiError(ApiErrorKind.Network, 0, 0, 'request failed', '', redactUrl(url));
+    return toTransportApiError(err, url);
   }
 
   private async raceCancel(cancel: CancelToken, delay: number): Promise<void> {
@@ -255,4 +245,20 @@ function readHeader(header: Object, name: string): string | undefined {
     }
   }
   return undefined;
+}
+
+export function toTransportApiError(err: Object, url: string): ApiError {
+  if (err instanceof ApiError) {
+    return err;
+  }
+  const be = err as BusinessError;
+  if (be !== undefined && be !== null && be.code !== undefined) {
+    const code = be.code;
+    let kind = ApiErrorKind.Network;
+    if (code === 2090001) {
+      kind = ApiErrorKind.Canceled;
+    }
+    return new ApiError(kind, 0, code, be.message ?? '', '', redactUrl(url));
+  }
+  return new ApiError(ApiErrorKind.Network, 0, 0, 'request failed', '', redactUrl(url));
 }
