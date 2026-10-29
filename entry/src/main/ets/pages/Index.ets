@@ -53,6 +53,7 @@ struct Index {
   @Local repoBrowse: RepoBrowseStore | undefined = undefined;
   @Local currentTab: number = 0;
   @Local bootstrapped: boolean = false;
+  @Local booting: boolean = true;
   @Local bootError: string = '';
   @Local metrics: DisplayMetrics = DisplayMetrics.instance();
   @Local materialType: hdsMaterial.MaterialType = hdsMaterial.MaterialType.ADAPTIVE;
@@ -81,6 +82,7 @@ struct Index {
   }
 
   private async readContainer(): Promise<void> {
+    this.booting = true;
     const holder = AppStorage.get<ContainerHolder>(HOLDER_KEY);
     const c: AppContainer | undefined = holder === undefined ? undefined : holder.container;
     if (c === undefined) {
@@ -98,6 +100,8 @@ struct Index {
       this.bootError = '登录态恢复失败，请重试';
       this.session = undefined;
       this.repoBrowse = undefined;
+    } finally {
+      this.booting = false;
     }
   }
 
@@ -472,7 +476,7 @@ struct Index {
     HdsNavigation(this.pathStack) {
       if (this.bootError.length > 0) {
         this.errorView()
-      } else if (this.session === undefined) {
+      } else if (this.booting || this.session === undefined) {
         this.bootView()
       } else if (!this.session.loggedIn) {
         LoginPage({
