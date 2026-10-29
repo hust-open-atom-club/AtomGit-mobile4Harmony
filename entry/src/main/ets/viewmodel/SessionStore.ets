@@ -129,11 +129,15 @@ export class SessionStore {
       await this.loadMine();
       return true;
     } catch (err) {
-      await this.cipher.remove();
-      this.token = '';
+      const expired: boolean = err instanceof ApiError && err.requiresReLogin();
+      if (expired) {
+        await this.cipher.remove();
+        this.token = '';
+      }
       this.guard.clear();
       this.user = undefined;
-      this.needReLogin = true;
+      this.loggedIn = false;
+      this.needReLogin = expired;
       this.errorMessage = toUserMessage(err);
       this.state = LoadState.Error;
       return false;
