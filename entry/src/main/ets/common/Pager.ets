@@ -1,45 +1,92 @@
 export enum PagingType {
-  // page / per_page（页码型）
   Offset = 'Offset',
-  // year + next（游标型）
   Cursor = 'Cursor'
 }
 
+/** Request position for APIs that use page/per_page. */
+export class OffsetPageRequest {
+  readonly type: PagingType = PagingType.Offset;
+  readonly page: number;
+  readonly perPage: number;
+
+  constructor(page: number = 1, perPage: number = DEFAULT_PER_PAGE) {
+    this.page = clampPage(page);
+    this.perPage = clampPerPage(perPage);
+  }
+
+  next(): OffsetPageRequest {
+    return new OffsetPageRequest(this.page + 1, this.perPage);
+  }
+}
+
+/** Request position for APIs that return an opaque next cursor. */
+export class CursorPageRequest {
+  readonly type: PagingType = PagingType.Cursor;
+  readonly cursor: string | undefined;
+
+  constructor(cursor?: string) {
+    this.cursor = cursor;
+  }
+}
+
+export type PageRequest = OffsetPageRequest | CursorPageRequest;
+
+/** Legacy state retained while existing repositories migrate to PageRequest. */
 export class PagingState {
   readonly type: PagingType;
   readonly page: number;
   readonly cursor?: string;
+  readonly perPage: number;
 
-  constructor(type: PagingType, page: number, cursor?: string) {
+  constructor(type: PagingType, page: number, cursor?: string, perPage: number = DEFAULT_PER_PAGE) {
     this.type = type;
-    this.page = page;
+    this.page = clampPage(page);
     this.cursor = cursor;
+    this.perPage = clampPerPage(perPage);
   }
 
-  static first(type: PagingType): PagingState {
-    return type === PagingType.Cursor
-      ? new PagingState(PagingType.Cursor, 1, undefined)
-      : new PagingState(PagingType.Offset, 1, undefined);
+  static first(type: PagingType, perPage: number = DEFAULT_PER_PAGE): PagingState {
+    return new PagingState(type, 1, undefined, perPage);
   }
 
-  next(): PagingState {
+  static fromRequest(request: PageRequest): PagingState {
+    return request instanceof CursorPageRequest
+      ? new PagingState(PagingType.Cursor, 1, request.cursor)
+      : new PagingState(PagingType.Offset, request.page, undefined, request.perPage);
+  }
+
+  next(nextCursor?: string): PagingState {
     if (this.type === PagingType.Cursor) {
-      return new PagingState(PagingType.Cursor, this.page, this.cursor);
+      return new PagingState(PagingType.Cursor, this.page, nextCursor, this.perPage);
     }
-    return new PagingState(PagingType.Offset, this.page + 1, undefined);
+    return new PagingState(PagingType.Offset, this.page + 1, undefined, this.perPage);
+  }
+
+  request(): PageRequest {
+    return this.type === PagingType.Cursor
+      ? new CursorPageRequest(this.cursor)
+      : new OffsetPageRequest(this.page, this.perPage);
   }
 }
 
-// hasMore 判据：Offset 看是否满 per_page，Cursor 看是否返回 next
+/** A page carries the exact next request position supplied by the API. */
 export class Page<T> {
   readonly items: T[];
   readonly hasMore: boolean;
   readonly paging: PagingState;
+  readonly nextRequest: PageRequest | undefined;
 
-  constructor(items: T[], hasMore: boolean, paging: PagingState) {
+  constructor(items: T[], hasMore: boolean, paging: PagingState, nextRequest?: PageRequest) {
     this.items = items;
-    this.hasMore = hasMore;
     this.paging = paging;
+    const resolvedNext = nextRequest ?? (paging.type === PagingType.Offset && hasMore && items.length > 0
+      ? new OffsetPageRequest(paging.page + 1, paging.perPage) : undefined);
+    const validNext = resolvedNext !== undefined && (paging.type === PagingType.Offset
+      ? resolvedNext instanceof OffsetPageRequest && resolvedNext.page > paging.page
+      : resolvedNext instanceof CursorPageRequest
+        && cursorCanContinue(paging.cursor, resolvedNext.cursor));
+    this.hasMore = hasMore && items.length > 0 && validNext;
+    this.nextRequest = this.hasMore ? resolvedNext : undefined;
   }
 
   static empty<T>(paging: PagingState): Page<T> {
@@ -47,41 +94,43 @@ export class Page<T> {
   }
 }
 
-// per_page 上限 100
 export const MAX_PER_PAGE: number = 100;
-
-// 默认每页 20
 export const DEFAULT_PER_PAGE: number = 20;
 
 export function clampPage(page: number): number {
-  if (!Number.isFinite(page) || page < 1) {
-    return 1;
-  }
+  if (!Number.isFinite(page) || page < 1) return 1;
   return Math.floor(page);
 }
 
 export function clampPerPage(perPage: number): number {
-  if (!Number.isFinite(perPage) || perPage < 1) {
-    return DEFAULT_PER_PAGE;
-  }
+  if (!Number.isFinite(perPage) || perPage < 1) return DEFAULT_PER_PAGE;
   return Math.min(Math.floor(perPage), MAX_PER_PAGE);
 }
 
-// 返回条数不足 per_page 时不能断言末页，满页才继续探测
 export function offsetHasMore(received: number, perPage: number): boolean {
-  return received >= perPage;
+  return received >= clampPerPage(perPage);
 }
 
-// next 缺失即终止，不得臆造下一页参数
 export function cursorHasMore(nextCursor: string | undefined | null): boolean {
   return typeof nextCursor === 'string' && nextCursor.length > 0;
 }
 
-// 空页必终止，避免重复请求同一页
-export function appendPage<T>(previous: T[], incoming: T[], declaredHasMore: boolean, paging: PagingState): Page<T> {
-  if (incoming.length === 0) {
-    return new Page<T>(previous, false, paging);
-  }
-  const merged = previous.concat(incoming);
-  return new Page<T>(merged, declaredHasMore, paging);
+export function cursorCanContinue(currentCursor: string | undefined, nextCursor: string | undefined | null): boolean {
+  return cursorHasMore(nextCursor) && nextCursor !== currentCursor;
+}
+
+export function nextOffsetRequest(current: OffsetPageRequest, received: number): PageRequest | undefined {
+  return offsetHasMore(received, current.perPage) ? current.next() : undefined;
+}
+
+export function nextCursorRequest(current: CursorPageRequest, nextCursor: string | undefined | null,
+  received: number): PageRequest | undefined {
+  if (received === 0 || !cursorCanContinue(current.cursor, nextCursor)) return undefined;
+  return new CursorPageRequest(nextCursor as string);
+}
+
+export function appendPage<T>(previous: T[], incoming: T[], declaredHasMore: boolean,
+  paging: PagingState, nextRequest?: PageRequest): Page<T> {
+  if (incoming.length === 0) return new Page<T>(previous, false, paging);
+  return new Page<T>(previous.concat(incoming), declaredHasMore, paging, nextRequest);
 }
