@@ -6,7 +6,7 @@ import { AtomGitRepository } from '../main/ets/repository/AtomGitRepository';
 import { FakeHttp } from './fakes/FakeHttp';
 
 export default function repositoryTest() {
-  describe('AtomGitRepository 解析契约', () => {
+  describe('AtomGitRepositoryParsingContract', () => {
     it('currentUser_maps_object_payload', 0, () => {
       const http = new FakeHttp();
       http.onJson('/api/v5/user',
