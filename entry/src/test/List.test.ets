@@ -14,6 +14,7 @@ import cacheScopeTest from './CacheScope.test';
 import checkStatusDisplayTest from './CheckStatusDisplay.test';
 import displayMetricsTest from './DisplayMetrics.test';
 import regressionTest from './Regression.test';
+import collaborationContractTest from './CollaborationContract.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -32,4 +33,5 @@ export default function testsuite() {
   checkStatusDisplayTest();
   displayMetricsTest();
   regressionTest();
+  collaborationContractTest();
 }
