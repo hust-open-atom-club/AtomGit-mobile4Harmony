@@ -22,7 +22,7 @@ import {
 } from '../main/ets/model/Mappers';
 
 export default function apiContractTest() {
-  describe('API 契约（实录样本）', () => {
+  describe('ApiContractRecordedSamples', () => {
     it('maps_real_user_response', 0, () => {
       // GET /api/v5/user 实录
       const d: UserDto = {

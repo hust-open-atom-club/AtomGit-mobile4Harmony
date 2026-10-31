@@ -4,7 +4,7 @@ import { AccountGuard, accountScopedKey } from '../main/ets/security/TokenEnvelo
 import { resolveCacheScope, resolveClearPrefix } from '../main/ets/storage/CacheStore';
 
 export default function cacheScopeTest() {
-  describe('缓存账号作用域', () => {
+  describe('AccountCacheScope', () => {
     it('未登录时不产生任何键', 0, () => {
       const g = new AccountGuard();
       expect(resolveCacheScope(g, 'my_repos')).assertEqual(undefined);

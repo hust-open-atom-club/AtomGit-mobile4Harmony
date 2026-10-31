@@ -1,8 +1,9 @@
 import { JSON as ArkJSON } from '@kit.ArkTS';
 
 import { ApiError, ApiErrorKind } from '../common/ApiError';
+import { CancellationSignal } from '../common/Cancellation';
 import { fromBase64, utf8Decode } from '../common/Codec';
-import { CancelToken, HttpResult } from '../network/HttpClient';
+import { HttpResult } from '../network/HttpClient';
 import { HttpPort } from '../network/HttpPort';
 import { HttpMethod } from '../network/NetworkPolicy';
 import { RequestSpec, kv } from '../network/RequestSpec';
@@ -63,7 +64,7 @@ export class AtomGitRepository
     this.http = http;
   }
 
-  async currentUser(cancel?: CancelToken): Promise<CurrentUser> {
+  async currentUser(cancel?: CancellationSignal): Promise<CurrentUser> {
     const spec = new RequestSpec(HttpMethod.GET, '/user', [], false, true);
     const res = await this.http.request(spec, cancel);
     const parsed = this.parseObject(res, '/user');
@@ -71,7 +72,7 @@ export class AtomGitRepository
   }
 
   // 实测返回裸数组
-  async myRepos(page: number, perPage: number, cancel?: CancelToken): Promise<Page<RepoSummary>> {
+  async myRepos(page: number, perPage: number, cancel?: CancellationSignal): Promise<Page<RepoSummary>> {
     const query: string[] = [
       kv('page', clampPage(page)),
       kv('per_page', clampPerPage(perPage))
@@ -84,11 +85,12 @@ export class AtomGitRepository
       repos.push(toRepoSummary(item as RepoDto));
     }
     const pp = clampPerPage(perPage);
-    return new Page<RepoSummary>(repos, offsetHasMore(list.length, pp), PagingState.first(PagingType.Offset));
+    return new Page<RepoSummary>(repos, offsetHasMore(list.length, pp),
+      new PagingState(PagingType.Offset, clampPage(page), undefined, pp));
   }
 
   // 实测 type 为 user / group
-  async myNamespaces(cancel?: CancelToken): Promise<NamespaceItem[]> {
+  async myNamespaces(cancel?: CancellationSignal): Promise<NamespaceItem[]> {
     const spec = new RequestSpec(HttpMethod.GET, '/user/namespaces', [], false, true);
     const res = await this.http.request(spec, cancel);
     const list = this.parseArray(res, '/user/namespaces');
@@ -99,7 +101,7 @@ export class AtomGitRepository
     return out;
   }
 
-  async orgsOf(username: string, cancel?: CancelToken): Promise<OrgSummary[]> {
+  async orgsOf(username: string, cancel?: CancellationSignal): Promise<OrgSummary[]> {
     const spec = new RequestSpec(HttpMethod.GET, '/users/' + seg(username) + '/orgs', [], false, true);
     const res = await this.http.request(spec, cancel);
     const list = this.parseArray(res, '/users/' + username + '/orgs');
@@ -110,7 +112,7 @@ export class AtomGitRepository
     return out;
   }
 
-  async repoDetail(owner: string, repo: string, cancel?: CancelToken): Promise<RepoSummary> {
+  async repoDetail(owner: string, repo: string, cancel?: CancellationSignal): Promise<RepoSummary> {
     const path = '/repos/' + seg(owner) + '/' + seg(repo);
     const spec = new RequestSpec(HttpMethod.GET, path, [], false, true);
     const res = await this.http.request(spec, cancel);
@@ -120,7 +122,7 @@ export class AtomGitRepository
 
   // 目录返回数组，文件返回单对象；file_list 只有扁平字符串且 path 无效
   async listDir(owner: string, repo: string, path: string,
-    cancel?: CancelToken): Promise<RepoEntry[]> {
+    cancel?: CancellationSignal): Promise<RepoEntry[]> {
     const full = this.joinPath(path);
     const spec = new RequestSpec(HttpMethod.GET,
       '/repos/' + seg(owner) + '/' + seg(repo) + '/contents' + full, [], false, true);
@@ -136,7 +138,7 @@ export class AtomGitRepository
 
   // 二进制或解码失败时 decodable=false，text 为空串
   async fileContent(owner: string, repo: string, path: string,
-    cancel?: CancelToken): Promise<RepoFileContent> {
+    cancel?: CancellationSignal): Promise<RepoFileContent> {
     const full = this.joinPath(path);
     const spec = new RequestSpec(HttpMethod.GET,
       '/repos/' + seg(owner) + '/' + seg(repo) + '/contents' + full, [], false, true);
@@ -161,7 +163,7 @@ export class AtomGitRepository
   }
 
   // file_list 只返回扁平字符串数组，path 参数不生效
-  async flatFileList(owner: string, repo: string, cancel?: CancelToken): Promise<RepoEntry[]> {
+  async flatFileList(owner: string, repo: string, cancel?: CancellationSignal): Promise<RepoEntry[]> {
     const spec = new RequestSpec(HttpMethod.GET,
       '/repos/' + seg(owner) + '/' + seg(repo) + '/file_list', [], false, true);
     const res = await this.http.request(spec, cancel);
@@ -177,7 +179,7 @@ export class AtomGitRepository
 
   // 实测响应被 { total_count, workflow_runs } 包裹
   async checkRuns(owner: string, repo: string, branch: string | undefined,
-    page: number, perPage: number, cancel?: CancelToken): Promise<Page<CheckRun>> {
+    page: number, perPage: number, cancel?: CancellationSignal): Promise<Page<CheckRun>> {
     const query: string[] = [
       kv('page', clampPage(page)),
       kv('per_page', clampPerPage(perPage))
@@ -196,7 +198,8 @@ export class AtomGitRepository
       runs.push(toCheckRun(item as WorkflowRunDto));
     }
     const pp = clampPerPage(perPage);
-    return new Page<CheckRun>(runs, offsetHasMore(list.length, pp), PagingState.first(PagingType.Offset));
+    return new Page<CheckRun>(runs, offsetHasMore(list.length, pp),
+      new PagingState(PagingType.Offset, clampPage(page), undefined, pp));
 }
 
   private parseArray(res: HttpResult, endpoint: string): Object[] {

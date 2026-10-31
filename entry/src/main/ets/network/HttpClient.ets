@@ -3,6 +3,7 @@ import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 import { ApiError, ApiErrorKind, buildApiError } from '../common/ApiError';
+import { CancellationSignal } from '../common/Cancellation';
 import { errorSummary, redactUrl } from '../common/Redact';
 import { RequestSpec, buildHeaders, buildUrl } from './RequestSpec';
 import { HttpPort } from './HttpPort';
@@ -21,7 +22,7 @@ import {
 
 const DOMAIN = 0x0000;
 
-export class CancelToken {
+export class CancelToken implements CancellationSignal {
   private canceled: boolean = false;
   private pending: Array<() => void> = [];
 
@@ -101,7 +102,7 @@ export class HttpClient implements HttpPort {
     this.tokenSource = src;
   }
 
-  async request(spec: RequestSpec, cancel?: CancelToken): Promise<HttpResult> {
+  async request(spec: RequestSpec, cancel?: CancellationSignal): Promise<HttpResult> {
     const url = buildUrl(spec);
     const token = this.tokenSource === undefined ? undefined : this.tokenSource.currentToken();
     const headers = buildHeaders(spec, token);
@@ -145,7 +146,7 @@ export class HttpClient implements HttpPort {
   }
 
   private async once(spec: RequestSpec, headers: Record<string, string>, url: string,
-    cancel?: CancelToken): Promise<HttpResult> {
+    cancel?: CancellationSignal): Promise<HttpResult> {
     const client = http.createHttp();
     try {
       const options: http.HttpRequestOptions = {
@@ -193,7 +194,7 @@ export class HttpClient implements HttpPort {
     return toTransportApiError(err, url);
   }
 
-  private async raceCancel(cancel: CancelToken, delay: number): Promise<void> {
+  private async raceCancel(cancel: CancellationSignal, delay: number): Promise<void> {
     await Promise.race([cancel.wait(), sleep(delay)]);
   }
 }
