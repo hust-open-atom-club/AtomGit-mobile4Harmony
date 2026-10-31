@@ -1,3 +1,5 @@
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
 export enum RefreshDomain {
   Activity = 'activity',
   Todo = 'todo',
@@ -72,7 +74,13 @@ export class RefreshCoordinator {
     this.revision++;
     const event = new RefreshEvent(domain, accountId, reason, repositoryKey, itemKey, this.revision);
     this.listeners.forEach((subscription: RefreshSubscription) => {
-      if (subscription.accepts(event)) subscription.listener(event);
+      if (!subscription.accepts(event)) return;
+      try {
+        subscription.listener(event);
+      } catch (err) {
+        hilog.error(0x0000, 'AtomGit', 'refresh listener failed: %{public}s',
+          err instanceof Error ? err.message : 'unknown error');
+      }
     });
     return event;
   }
