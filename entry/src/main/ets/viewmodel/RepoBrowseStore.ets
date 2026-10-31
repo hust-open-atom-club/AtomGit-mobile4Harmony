@@ -1,4 +1,5 @@
 import { ApiError } from '../common/ApiError';
+import { OffsetPageRequest } from '../common/Pager';
 import { RepoReadRepository } from '../repository/Ports';
 import { LoadState } from './SessionStore';
 import { CheckRun, RepoEntry, RepoFileContent, RepoSummary } from '../model/Entities';
@@ -15,7 +16,7 @@ export class RepoBrowseStore {
   @Trace currentPath: string = '';
 
   private readonly dataSource: RepoReadRepository;
-  private ciPage: number = 1;
+  private ciRequest: OffsetPageRequest | undefined = new OffsetPageRequest(1, 20);
 
   constructor(dataSource: RepoReadRepository) {
     this.dataSource = dataSource;
@@ -29,7 +30,7 @@ export class RepoBrowseStore {
     this.repo = undefined;
     this.entries = [];
     this.checks = [];
-    this.ciPage = 1;
+    this.ciRequest = new OffsetPageRequest(1, 20);
     try {
       this.repo = await this.dataSource.repoDetail(owner, name);
       this.entries = await this.dataSource.listDir(this.repo.owner, this.repo.name, '');
@@ -88,14 +89,15 @@ export class RepoBrowseStore {
   }
 
   async loadChecks(): Promise<void> {
-    if (this.repo === undefined) {
+    if (this.repo === undefined || this.ciRequest === undefined) {
       return;
     }
     try {
+      const request = this.ciRequest;
       const res = await this.dataSource.checkRuns(this.repo.owner, this.repo.name,
-        this.repo.defaultBranch, this.ciPage, 20);
-      this.checks = this.ciPage === 1 ? res.items : this.checks.concat(res.items);
-      this.ciPage++;
+        this.repo.defaultBranch, request);
+      this.checks = request.page === 1 ? res.items : this.checks.concat(res.items);
+      this.ciRequest = res.nextRequest instanceof OffsetPageRequest ? res.nextRequest : undefined;
       this.errorMessage = '';
     } catch (err) {
       this.errorMessage = err instanceof ApiError ? err.toUserMessage() : '流水线状态不可用';

@@ -1,4 +1,5 @@
 import { ApiError, ApiErrorKind } from '../common/ApiError';
+import { OffsetPageRequest } from '../common/Pager';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { TokenSource } from '../network/HttpClient';
 import { SessionReadRepository } from '../repository/Ports';
@@ -42,9 +43,8 @@ export class SessionStore {
   @Trace needReLogin: boolean = false;
 
   private token: string = '';
-  private page: number = 1;
+  private reposRequest: OffsetPageRequest = new OffsetPageRequest();
   private loadingRepos: boolean = false;
-  private readonly perPage: number = 20;
 
   private readonly dataSource: SessionReadRepository;
   private readonly cipher: CredentialStore;
@@ -156,12 +156,14 @@ export class SessionStore {
       return;
     }
     this.loadingRepos = true;
-    const page: number = this.page;
+    const request = this.reposRequest;
     try {
-      const res = await this.dataSource.myRepos(page, this.perPage);
-      this.repos = page === 1 ? res.items : this.repos.concat(res.items);
-      this.hasMoreRepos = res.items.length > 0;
-      this.page = page + 1;
+      const res = await this.dataSource.myRepos(request);
+      this.repos = request.page === 1 ? res.items : this.repos.concat(res.items);
+      this.hasMoreRepos = res.hasMore;
+      if (res.nextRequest instanceof OffsetPageRequest) {
+        this.reposRequest = res.nextRequest;
+      }
       this.state = LoadState.Ready;
     } catch (err) {
       this.errorMessage = toUserMessage(err);
@@ -185,7 +187,7 @@ export class SessionStore {
   }
 
   async refresh(): Promise<void> {
-    this.page = 1;
+    this.reposRequest = new OffsetPageRequest();
     this.hasMoreRepos = true;
     this.state = LoadState.Refreshing;
     await this.loadMine();
@@ -206,7 +208,7 @@ export class SessionStore {
     this.repos = [];
     this.orgs = [];
     this.namespaces = [];
-    this.page = 1;
+    this.reposRequest = new OffsetPageRequest();
     this.hasMoreRepos = true;
     this.errorMessage = '';
     this.needReLogin = false;

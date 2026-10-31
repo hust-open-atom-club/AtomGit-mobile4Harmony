@@ -9,11 +9,9 @@ import { HttpMethod } from '../network/NetworkPolicy';
 import { RequestSpec, kv } from '../network/RequestSpec';
 import {
   DEFAULT_PER_PAGE,
-  PagingType,
+  OffsetPageRequest,
   Page,
-  PagingState,
-  clampPage,
-  clampPerPage,
+  nextOffsetRequest,
   offsetHasMore
 } from '../common/Pager';
 import {
@@ -72,10 +70,10 @@ export class AtomGitRepository
   }
 
   // 实测返回裸数组
-  async myRepos(page: number, perPage: number, cancel?: CancellationSignal): Promise<Page<RepoSummary>> {
+  async myRepos(request: OffsetPageRequest, cancel?: CancellationSignal): Promise<Page<RepoSummary>> {
     const query: string[] = [
-      kv('page', clampPage(page)),
-      kv('per_page', clampPerPage(perPage))
+      kv('page', request.page),
+      kv('per_page', request.perPage)
     ];
     const spec = new RequestSpec(HttpMethod.GET, '/user/repos', query, false, true);
     const res = await this.http.request(spec, cancel);
@@ -84,9 +82,8 @@ export class AtomGitRepository
     for (const item of list) {
       repos.push(toRepoSummary(item as RepoDto));
     }
-    const pp = clampPerPage(perPage);
-    return new Page<RepoSummary>(repos, offsetHasMore(list.length, pp),
-      new PagingState(PagingType.Offset, clampPage(page), undefined, pp));
+    // This endpoint may return a short non-terminal page; an empty page is the stop signal.
+    return new Page<RepoSummary>(repos, request, nextOffsetRequest(request, list.length > 0));
   }
 
   // 实测 type 为 user / group
@@ -179,10 +176,10 @@ export class AtomGitRepository
 
   // 实测响应被 { total_count, workflow_runs } 包裹
   async checkRuns(owner: string, repo: string, branch: string | undefined,
-    page: number, perPage: number, cancel?: CancellationSignal): Promise<Page<CheckRun>> {
+    request: OffsetPageRequest, cancel?: CancellationSignal): Promise<Page<CheckRun>> {
     const query: string[] = [
-      kv('page', clampPage(page)),
-      kv('per_page', clampPerPage(perPage))
+      kv('page', request.page),
+      kv('per_page', request.perPage)
     ];
     if (branch !== undefined && branch.length > 0) {
       query.push(kv('branch', branch));
@@ -197,9 +194,11 @@ export class AtomGitRepository
     for (const item of list) {
       runs.push(toCheckRun(item as WorkflowRunDto));
     }
-    const pp = clampPerPage(perPage);
-    return new Page<CheckRun>(runs, offsetHasMore(list.length, pp),
-      new PagingState(PagingType.Offset, clampPage(page), undefined, pp));
+    const totalCount = wrapped.total_count;
+    const hasMore = totalCount === undefined
+      ? offsetHasMore(list.length, request.perPage)
+      : request.page * request.perPage < totalCount;
+    return new Page<CheckRun>(runs, request, nextOffsetRequest(request, hasMore));
 }
 
   private parseArray(res: HttpResult, endpoint: string): Object[] {

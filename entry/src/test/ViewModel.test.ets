@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@ohos/hypium';
 
 import { ApiError } from '../main/ets/common/ApiError';
-import { Page, PagingState, PagingType } from '../main/ets/common/Pager';
+import { OffsetPageRequest, Page } from '../main/ets/common/Pager';
 import {
   CheckRun,
   CheckStatus,
@@ -150,8 +150,8 @@ export default function viewModelTest() {
 
     it('repos_accumulate_across_pages', 0, () => {
       const repo = new FakeRepository();
-      repo.reposResult = new Page<RepoSummary>([fakeRepo('a/b')], true,
-        PagingState.first(PagingType.Offset));
+      repo.reposResult = new Page<RepoSummary>([fakeRepo('a/b')], new OffsetPageRequest(1, 20),
+        new OffsetPageRequest(2, 20));
       const s = new SessionStore(repo, new FakeCredentialStore(), new FakeCacheCleaner(),
         new FakeSettingsCleaner(), new AccountGuard());
       return s.login('T').then(() => s.loadRepos()).then(() => {
@@ -250,7 +250,8 @@ export default function viewModelTest() {
       const repo = new FakeRepository();
       const run = new CheckRun('run-1', 'build', 'main', CheckStatus.Success, 'COMPLETED',
         'SUCCESS', 'Push', '', '');
-      repo.checksResult = new Page<CheckRun>([run], true, PagingState.first(PagingType.Offset));
+      repo.checksResult = new Page<CheckRun>([run], new OffsetPageRequest(1, 20),
+        new OffsetPageRequest(2, 20));
       const b = new RepoBrowseStore(repo);
       return b.open('o', 'r').then(() => {
         expect(b.checks.length).assertEqual(1);

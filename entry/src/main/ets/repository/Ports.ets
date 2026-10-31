@@ -1,5 +1,5 @@
 import { CancellationSignal } from '../common/Cancellation';
-import { Page, PageRequest } from '../common/Pager';
+import { OffsetPageRequest, Page, PageRequest } from '../common/Pager';
 import { CheckRun, CurrentUser, NamespaceItem, OrgSummary, RepoEntry, RepoFileContent, RepoSummary }
   from '../model/Entities';
 import {
@@ -18,7 +18,7 @@ export interface UserRepository {
 }
 
 export interface MineRepository {
-  myRepos(page: number, perPage: number, cancel?: CancellationSignal): Promise<Page<RepoSummary>>;
+  myRepos(request: OffsetPageRequest, cancel?: CancellationSignal): Promise<Page<RepoSummary>>;
   myNamespaces(cancel?: CancellationSignal): Promise<NamespaceItem[]>;
   orgsOf(username: string, cancel?: CancellationSignal): Promise<OrgSummary[]>;
 }
@@ -27,7 +27,7 @@ export interface RepoReadRepository {
   repoDetail(owner: string, repo: string, cancel?: CancellationSignal): Promise<RepoSummary>;
   listDir(owner: string, repo: string, path: string, cancel?: CancellationSignal): Promise<RepoEntry[]>;
   fileContent(owner: string, repo: string, path: string, cancel?: CancellationSignal): Promise<RepoFileContent>;
-  checkRuns(owner: string, repo: string, branch: string | undefined, page: number, perPage: number,
+  checkRuns(owner: string, repo: string, branch: string | undefined, request: OffsetPageRequest,
     cancel?: CancellationSignal):
     Promise<Page<CheckRun>>;
 }

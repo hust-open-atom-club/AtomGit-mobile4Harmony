@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@ohos/hypium';
 
 import { ApiError, ApiErrorKind } from '../main/ets/common/ApiError';
+import { OffsetPageRequest } from '../main/ets/common/Pager';
 import { CheckStatus } from '../main/ets/model/Entities';
 import { AtomGitRepository } from '../main/ets/repository/AtomGitRepository';
 import { FakeHttp } from './fakes/FakeHttp';
@@ -24,11 +25,12 @@ export default function repositoryTest() {
       http.onJson('/api/v5/user/repos',
         '[{"id":1,"full_name":"a/b","name":"b","namespace":{"path":"a"}}]');
       const repo = new AtomGitRepository(http);
-      return repo.myRepos(1, 20).then((page) => {
+      return repo.myRepos(new OffsetPageRequest(1, 20)).then((page) => {
         expect(page.items.length).assertEqual(1);
         expect(page.items[0].owner).assertEqual('a');
         expect(page.items[0].name).assertEqual('b');
-        expect(page.hasMore).assertFalse();
+        expect(page.hasMore).assertTrue();
+        expect(page.nextRequest instanceof OffsetPageRequest).assertTrue();
       });
     });
 
@@ -37,8 +39,10 @@ export default function repositoryTest() {
       const http = new FakeHttp();
       http.onJson('/api/v5/user/repos', '[' + one + ',' + one + ',' + one + ']');
       const repo = new AtomGitRepository(http);
-      return repo.myRepos(1, 3).then((page) => {
+      return repo.myRepos(new OffsetPageRequest(1, 3)).then((page) => {
         expect(page.hasMore).assertTrue();
+        expect(page.nextRequest instanceof OffsetPageRequest).assertTrue();
+        expect((page.nextRequest as OffsetPageRequest).page).assertEqual(2);
       });
     });
 
@@ -89,7 +93,7 @@ export default function repositoryTest() {
         '{"workflow_run_id":"run-b","id":7,"status":"COMPLETED","title":"test",' +
         '"workflow_name":"test","head_branch":"main","start_time":"2026-01-02T00:00:00Z"}]}');
       const repo = new AtomGitRepository(http);
-      return repo.checkRuns('o', 'r', 'master', 1, 20).then((page) => {
+      return repo.checkRuns('o', 'r', 'master', new OffsetPageRequest(1, 20)).then((page) => {
         expect(page.items.length).assertEqual(2);
         expect(page.items[0].id).assertEqual('run-a');
         expect(page.items[1].id).assertEqual('run-b');
@@ -104,7 +108,7 @@ export default function repositoryTest() {
       const http = new FakeHttp();
       http.onJson('/api/v8/repos/o/r/actions/runs', '{"total_count":0,"workflow_runs":[]}');
       const repo = new AtomGitRepository(http);
-      return repo.checkRuns('o', 'r', undefined, 1, 20).then((page) => {
+      return repo.checkRuns('o', 'r', undefined, new OffsetPageRequest(1, 20)).then((page) => {
         expect(page.items.length).assertEqual(0);
       });
     });
@@ -113,7 +117,7 @@ export default function repositoryTest() {
       const http = new FakeHttp();
       http.onJson('/api/v5/user/repos', '{"message":"not an array"}');
       const repo = new AtomGitRepository(http);
-      return repo.myRepos(1, 20).then(() => {
+      return repo.myRepos(new OffsetPageRequest(1, 20)).then(() => {
         expect(false).assertTrue();
       }).catch((err: ESObject) => {
         expect(err instanceof ApiError).assertTrue();
@@ -160,7 +164,7 @@ export default function repositoryTest() {
       const http = new FakeHttp();
       http.onJson('/api/v5/user/repos', '[]');
       const repo = new AtomGitRepository(http);
-      return repo.myRepos(0, 9999).then(() => {
+      return repo.myRepos(new OffsetPageRequest(0, 9999)).then(() => {
         const url = http.requestedUrls[http.requestedUrls.length - 1];
         expect(url.indexOf('page=1') >= 0).assertTrue();
         expect(url.indexOf('per_page=100') >= 0).assertTrue();

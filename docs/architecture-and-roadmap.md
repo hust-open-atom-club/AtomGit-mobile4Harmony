@@ -72,7 +72,7 @@ Solid lines show implemented runtime paths. Dotted lines show declared contracts
 | --- | --- | --- |
 | HTTP transport and cancellation | Implemented | `HttpClient` implements `HttpPort`; ports depend on `CancellationSignal` rather than the concrete client. |
 | Error representation | Implemented | `ApiError` normalizes transport and HTTP failures. New adapters must preserve this type. |
-| Pagination primitives | Implemented | Offset and cursor request types, `Page<T>`, continuation checks, and legacy `PagingState` are available. |
+| Pagination primitives | Implemented | Offset and cursor request types, `Page<T>`, and continuation checks are the single paging API. |
 | Existing session/repository adapter | Implemented | `AtomGitRepository` serves current user, mine, repository browsing, and check runs. |
 | Collaboration ports | Contract only | Activity, Todo, Issue, PR, and Notification interfaces are declared in `repository/Ports.ets`; no collaboration adapter implements them yet. |
 | Collaboration DTOs and entities | Contract fixture | Fields follow the AtomGit payloads recorded in the project research baseline (`atomgit-cli` `138a070`); the notification, activity, pull request file, approval readback, comment, and issue detail shapes are pinned by `entry/src/test/CollaborationContract.test.ets`. Endpoint-specific mapping and live payload validation remain feature work. |

@@ -31,66 +31,26 @@ export class CursorPageRequest {
 
 export type PageRequest = OffsetPageRequest | CursorPageRequest;
 
-/** Legacy state retained while existing repositories migrate to PageRequest. */
-export class PagingState {
-  readonly type: PagingType;
-  readonly page: number;
-  readonly cursor?: string;
-  readonly perPage: number;
-
-  constructor(type: PagingType, page: number, cursor?: string, perPage: number = DEFAULT_PER_PAGE) {
-    this.type = type;
-    this.page = clampPage(page);
-    this.cursor = cursor;
-    this.perPage = clampPerPage(perPage);
-  }
-
-  static first(type: PagingType, perPage: number = DEFAULT_PER_PAGE): PagingState {
-    return new PagingState(type, 1, undefined, perPage);
-  }
-
-  static fromRequest(request: PageRequest): PagingState {
-    return request instanceof CursorPageRequest
-      ? new PagingState(PagingType.Cursor, 1, request.cursor)
-      : new PagingState(PagingType.Offset, request.page, undefined, request.perPage);
-  }
-
-  next(nextCursor?: string): PagingState {
-    if (this.type === PagingType.Cursor) {
-      return new PagingState(PagingType.Cursor, this.page, nextCursor, this.perPage);
-    }
-    return new PagingState(PagingType.Offset, this.page + 1, undefined, this.perPage);
-  }
-
-  request(): PageRequest {
-    return this.type === PagingType.Cursor
-      ? new CursorPageRequest(this.cursor)
-      : new OffsetPageRequest(this.page, this.perPage);
-  }
-}
-
 /** A page carries the exact next request position supplied by the API. */
 export class Page<T> {
   readonly items: T[];
   readonly hasMore: boolean;
-  readonly paging: PagingState;
+  readonly request: PageRequest;
   readonly nextRequest: PageRequest | undefined;
 
-  constructor(items: T[], hasMore: boolean, paging: PagingState, nextRequest?: PageRequest) {
+  constructor(items: T[], request: PageRequest, nextRequest?: PageRequest) {
     this.items = items;
-    this.paging = paging;
-    const resolvedNext = nextRequest ?? (paging.type === PagingType.Offset && hasMore && items.length > 0
-      ? new OffsetPageRequest(paging.page + 1, paging.perPage) : undefined);
-    const validNext = resolvedNext !== undefined && (paging.type === PagingType.Offset
-      ? resolvedNext instanceof OffsetPageRequest && resolvedNext.page > paging.page
-      : resolvedNext instanceof CursorPageRequest
-        && cursorCanContinue(paging.cursor, resolvedNext.cursor));
-    this.hasMore = hasMore && items.length > 0 && validNext;
-    this.nextRequest = this.hasMore ? resolvedNext : undefined;
+    this.request = request;
+    const validNext = nextRequest !== undefined && (request instanceof OffsetPageRequest
+      ? nextRequest instanceof OffsetPageRequest && nextRequest.page === request.page + 1
+        && nextRequest.perPage === request.perPage
+      : nextRequest instanceof CursorPageRequest && cursorCanContinue(request.cursor, nextRequest.cursor));
+    this.nextRequest = items.length > 0 && validNext ? nextRequest : undefined;
+    this.hasMore = this.nextRequest !== undefined;
   }
 
-  static empty<T>(paging: PagingState): Page<T> {
-    return new Page<T>([], false, paging);
+  static empty<T>(request: PageRequest): Page<T> {
+    return new Page<T>([], request);
   }
 }
 
@@ -119,8 +79,8 @@ export function cursorCanContinue(currentCursor: string | undefined, nextCursor:
   return cursorHasMore(nextCursor) && nextCursor !== currentCursor;
 }
 
-export function nextOffsetRequest(current: OffsetPageRequest, received: number): PageRequest | undefined {
-  return offsetHasMore(received, current.perPage) ? current.next() : undefined;
+export function nextOffsetRequest(current: OffsetPageRequest, shouldContinue: boolean): PageRequest | undefined {
+  return shouldContinue ? current.next() : undefined;
 }
 
 export function nextCursorRequest(current: CursorPageRequest, nextCursor: string | undefined | null,
@@ -129,8 +89,6 @@ export function nextCursorRequest(current: CursorPageRequest, nextCursor: string
   return new CursorPageRequest(nextCursor as string);
 }
 
-export function appendPage<T>(previous: T[], incoming: T[], declaredHasMore: boolean,
-  paging: PagingState, nextRequest?: PageRequest): Page<T> {
-  if (incoming.length === 0) return new Page<T>(previous, false, paging);
-  return new Page<T>(previous.concat(incoming), declaredHasMore, paging, nextRequest);
+export function appendPage<T>(previous: T[], incoming: Page<T>): Page<T> {
+  return new Page<T>(previous.concat(incoming.items), incoming.request, incoming.nextRequest);
 }

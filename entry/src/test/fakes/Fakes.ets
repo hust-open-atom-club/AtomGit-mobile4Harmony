@@ -1,5 +1,5 @@
 import { ApiError, ApiErrorKind } from '../../main/ets/common/ApiError';
-import { Page, PagingState, PagingType } from '../../main/ets/common/Pager';
+import { nextOffsetRequest, OffsetPageRequest, Page } from '../../main/ets/common/Pager';
 import { CheckRun, CurrentUser, NamespaceItem, OrgSummary, RepoEntry, RepoFileContent, RepoSummary }
   from '../../main/ets/model/Entities';
 import { RepoReadRepository, SessionReadRepository } from '../../main/ets/repository/Ports';
@@ -43,13 +43,16 @@ export class FakeRepository implements SessionReadRepository, RepoReadRepository
     return this.pick(this.userResult, 'currentUser');
   }
 
-  async myRepos(page: number, perPage: number): Promise<Page<RepoSummary>> {
-    this.requestedPages.push(page);
-    return this.pick(this.reposResult ?? this.defaultRepos(), 'myRepos');
+  async myRepos(request: OffsetPageRequest): Promise<Page<RepoSummary>> {
+    this.requestedPages.push(request.page);
+    const result = this.pick(this.reposResult ?? this.defaultRepos(request), 'myRepos');
+    return new Page<RepoSummary>(result.items, request,
+      nextOffsetRequest(request, result.hasMore));
   }
 
-  private defaultRepos(): Page<RepoSummary> {
-    return new Page<RepoSummary>([fakeRepo('a/b')], false, PagingState.first(PagingType.Offset));
+  private defaultRepos(request: OffsetPageRequest): Page<RepoSummary> {
+    return new Page<RepoSummary>([fakeRepo('a/b')], request,
+      nextOffsetRequest(request, request.page < 2));
   }
 
   async myNamespaces(): Promise<NamespaceItem[]> {
@@ -72,10 +75,11 @@ export class FakeRepository implements SessionReadRepository, RepoReadRepository
     return this.pick(this.fileResult, 'fileContent:' + path);
   }
 
-  async checkRuns(owner: string, repo: string, branch: string | undefined, page: number, perPage: number):
+  async checkRuns(owner: string, repo: string, branch: string | undefined, request: OffsetPageRequest):
     Promise<Page<CheckRun>> {
-    return this.pick(this.checksResult ?? new Page<CheckRun>([], false,
-      PagingState.first(PagingType.Offset)), 'checkRuns');
+    const result = this.pick(this.checksResult ?? Page.empty<CheckRun>(request), 'checkRuns');
+    return new Page<CheckRun>(result.items, request,
+      nextOffsetRequest(request, result.hasMore));
   }
 }
 

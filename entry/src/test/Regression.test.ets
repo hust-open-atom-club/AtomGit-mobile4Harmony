@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@ohos/hypium';
 
 import { ApiError, ApiErrorKind } from '../main/ets/common/ApiError';
-import { Page, PagingState, PagingType } from '../main/ets/common/Pager';
+import { OffsetPageRequest, Page } from '../main/ets/common/Pager';
 import { WorkflowRunDto } from '../main/ets/model/Dtos';
 import { RepoEntry, RepoSummary } from '../main/ets/model/Entities';
 import { toCheckRun } from '../main/ets/model/Mappers';
@@ -20,13 +20,15 @@ import {
 } from './fakes/Fakes';
 
 class PagedRepository extends FakeRepository {
-  async myRepos(page: number, perPage: number): Promise<Page<RepoSummary>> {
-    this.requestedPages.push(page);
+  async myRepos(request: OffsetPageRequest): Promise<Page<RepoSummary>> {
+    this.requestedPages.push(request.page);
     await Promise.resolve();
-    const items: RepoSummary[] = page === 1
+    const items: RepoSummary[] = request.page === 1
       ? [fakeRepo('o/a'), fakeRepo('o/b')]
       : [fakeRepo('o/c')];
-    return new Page<RepoSummary>(items, page < 2, PagingState.first(PagingType.Offset));
+    const next = request.page < 2
+      ? new OffsetPageRequest(request.page + 1, request.perPage) : undefined;
+    return new Page<RepoSummary>(items, request, next);
   }
 }
 
