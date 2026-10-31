@@ -109,10 +109,5 @@ export interface NotificationRepository {
   markNotificationsRead(owner: string, repo: string, ids: string[], cancel?: CancellationSignal): Promise<void>;
 }
 
-/** Aggregate target contract for feature repositories as their adapters are implemented. */
-export interface AppRepository extends SessionReadRepository, RepoReadRepository,
-  ActivityRepository, TodoRepository, IssueRepository, PullRequestRepository, NotificationRepository {
-}
-
 export interface SessionReadRepository extends UserRepository, MineRepository {
 }

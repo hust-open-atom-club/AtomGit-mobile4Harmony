@@ -18,14 +18,14 @@ export class AppContainer {
   readonly repoBrowse: RepoBrowseStore;
   /** Shared in-process invalidation channel for feature stores. */
   readonly refresh: RefreshCoordinator;
-  /** Current data source for session and repository browsing; collaboration ports are contracts only. */
-  readonly repository: AtomGitRepository;
+  /** Existing data source for session and repository browsing. */
+  readonly coreRepository: AtomGitRepository;
 
   private readonly http: HttpClient;
 
   constructor(ctx: common.Context) {
     this.http = new HttpClient(defaultConfig());
-    this.repository = new AtomGitRepository(this.http);
+    this.coreRepository = new AtomGitRepository(this.http);
     this.refresh = new RefreshCoordinator();
     const guard = new AccountGuard();
     const cipher = new TokenCipher();
@@ -33,8 +33,8 @@ export class AppContainer {
     this.settings = new SettingsStore();
     const cache = this.cache;
     const settings = this.settings;
-    this.session = new SessionStore(this.repository, cipher, cache, settings, guard);
-    this.repoBrowse = new RepoBrowseStore(this.repository);
+    this.session = new SessionStore(this.coreRepository, cipher, cache, settings, guard);
+    this.repoBrowse = new RepoBrowseStore(this.coreRepository);
     this.http.setTokenSource(this.session.tokenSource());
     this.settings.open(ctx);
     this.cache.open(ctx);
