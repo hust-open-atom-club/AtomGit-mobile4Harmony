@@ -30,7 +30,7 @@ export default function pagerTest() {
     it('cursor_state_carries_cursor_verbatim', 0, () => {
       const first = PagingState.first(PagingType.Cursor);
       const withCursor = new PagingState(PagingType.Cursor, 1, '2026-01-01');
-      const advanced = withCursor.next();
+      const advanced = withCursor.next('2026-01-01');
       expect(advanced.cursor).assertEqual('2026-01-01');
       expect(advanced.page).assertEqual(1);
       expect(first.next().cursor === undefined).assertTrue();
