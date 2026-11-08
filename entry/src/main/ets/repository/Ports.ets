@@ -72,7 +72,8 @@ export class ApprovePullRequestOptions {
 }
 
 export interface ActivityRepository {
-  personalActivity(year: number, request: PageRequest, cancel?: CancellationSignal): Promise<Page<ActivityItem>>;
+  personalActivity(username: string, year: number, request: PageRequest,
+    cancel?: CancellationSignal): Promise<Page<ActivityItem>>;
   repositoryActivity(owner: string, repo: string, request: PageRequest,
     cancel?: CancellationSignal): Promise<Page<ActivityItem>>;
 }

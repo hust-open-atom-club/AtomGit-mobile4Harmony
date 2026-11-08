@@ -15,6 +15,7 @@ import checkStatusDisplayTest from './CheckStatusDisplay.test';
 import displayMetricsTest from './DisplayMetrics.test';
 import regressionTest from './Regression.test';
 import collaborationContractTest from './CollaborationContract.test';
+import activityRepositoryTest from './ActivityRepository.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -34,4 +35,5 @@ export default function testsuite() {
   displayMetricsTest();
   regressionTest();
   collaborationContractTest();
+  activityRepositoryTest();
 }

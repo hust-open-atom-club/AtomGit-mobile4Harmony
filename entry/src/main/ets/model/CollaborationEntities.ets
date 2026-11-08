@@ -25,9 +25,13 @@ export class ActivityItem {
   readonly target: RepositoryItemRef | undefined;
   /** Distinguishes an Issue target from a pull request target; undefined when unknown. */
   readonly targetKind: RepositoryItemKind | undefined;
+  readonly actorAvatarUrl: string;
+  readonly actionName: string;
+  readonly webUrl: string;
 
   constructor(id: string, kind: string, title: string, actor: string, repository: string,
-    createdAt: string, target?: RepositoryItemRef, targetKind?: RepositoryItemKind) {
+    createdAt: string, target?: RepositoryItemRef, targetKind?: RepositoryItemKind,
+    actorAvatarUrl: string = '', actionName: string = '', webUrl: string = '') {
     this.id = id;
     this.kind = kind;
     this.title = title;
@@ -36,6 +40,9 @@ export class ActivityItem {
     this.createdAt = createdAt;
     this.target = target;
     this.targetKind = targetKind;
+    this.actorAvatarUrl = actorAvatarUrl;
+    this.actionName = actionName;
+    this.webUrl = webUrl;
   }
 }
 

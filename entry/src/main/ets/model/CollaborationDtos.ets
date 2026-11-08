@@ -57,6 +57,46 @@ export interface BranchIdentityDto {
   sha?: string;
 }
 
+/** Author shape returned by user and repository activity endpoints. */
+export interface ActivityAuthorDto extends UserIdentityDto {
+  username?: string;
+  avatar_url?: string;
+  web_url?: string;
+  name_cn?: string;
+}
+
+export interface ActivityProjectDto {
+  main_repository_language?: string[];
+  star_count?: number;
+  forks_count?: number;
+  develop_mode?: string;
+  stared?: boolean;
+}
+
+export interface ActivityPushDataDto {
+  commit_count?: number;
+  action?: string;
+  ref_type?: string;
+  commit_from?: string;
+  commit_to?: string;
+  ref?: string;
+  commit_title?: string;
+}
+
+export interface ActivityNoteDto {
+  id?: string | number;
+  body?: string;
+  type?: string;
+  noteable_id?: string | number;
+  noteable_iid?: string | number;
+  noteable_type?: string;
+}
+
+export interface ActivityLinksDto {
+  project?: string;
+  action_type?: string;
+}
+
 /** Reviewer record returned with a pull request; `accept_status` is the readback field. */
 export interface ApprovalReviewerDto {
   id?: string | number;
@@ -79,23 +119,36 @@ export interface PullRequestDto extends IssueDto {
 export interface ActivityDto {
   action?: number;
   action_name?: string;
-  author?: UserIdentityDto;
+  author?: ActivityAuthorDto;
   author_id?: string | number;
   author_username?: string;
   created_at?: string;
+  project?: ActivityProjectDto;
   project_id?: string | number;
   project_name?: string;
+  push_data?: ActivityPushDataDto;
+  note?: ActivityNoteDto;
+  title?: string;
   target_id?: string | number;
   target_iid?: string | number;
   target_title?: string;
   target_type?: string;
   target_type_format?: string;
+  filter_sensitive?: boolean | number;
+  _links?: ActivityLinksDto;
 }
 
 /** GET /users/{username}/events returns date buckets plus an opaque next cursor. */
 export interface ActivityPageDto {
   events?: Record<string, ActivityDto[]>;
   next?: string;
+}
+
+/** GET /repos/{owner}/{repo}/events returns a flat page plus a continuation flag. */
+export interface RepositoryActivityPageDto {
+  events?: ActivityDto[];
+  // The documentation says integer, while the live endpoint returns a boolean.
+  has_next_page?: boolean | number;
 }
 
 /** Issue or pull request comment; review threads add the discussion fields. */
