@@ -12,7 +12,7 @@ AtomGit (atomgit.com) provides repository hosting, issue tracking, pull requests
 | Runtime fallbacks | Immersive materials and `PATCH` requests need API 26; below that the app draws blurred glass surfaces and rejects `PATCH` with `405` |
 | API | AtomGit OpenAPI v5 (`https://api.atomgit.com/api/v5`), Actions v8 |
 | API docs | [AtomGit OpenAPI](https://docs.atomgit.com/docs/apis/) |
-| Status | Project skeleton initialized, feature development not started |
+| Status | Activity feed implemented; remaining collaboration features in progress |
 
 ## License
 
