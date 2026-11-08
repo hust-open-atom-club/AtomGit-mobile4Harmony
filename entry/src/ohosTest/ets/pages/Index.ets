@@ -1,28 +1,47 @@
-import { hilog } from '@kit.PerformanceAnalysisKit';
-
-const DOMAIN = 0x0000;
+import { ActivityPage } from '../../../main/ets/pages/activity/ActivityPage';
+import { LoginPage } from '../../../main/ets/pages/login/LoginPage';
+import { AccountGuard } from '../../../main/ets/security/TokenEnvelope';
+import { ActivityStore } from '../../../main/ets/viewmodel/ActivityStore';
+import { SessionStore } from '../../../main/ets/viewmodel/SessionStore';
+import {
+  E2EActivityRepository,
+  E2ECacheCleaner,
+  E2ECredentialStore,
+  E2ESessionRepository,
+  E2ESettingsCleaner
+} from '../testability/E2EFakes';
 
 @Entry
 @ComponentV2
 struct Index {
-  @Local message: string = 'AtomGit test host';
+  @Local session: SessionStore = new SessionStore(
+    new E2ESessionRepository(),
+    new E2ECredentialStore(),
+    new E2ECacheCleaner(),
+    new E2ESettingsCleaner(),
+    new AccountGuard()
+  );
+  @Local activity: ActivityStore = new ActivityStore(new E2EActivityRepository());
 
   build() {
-    Column({ space: 12 }) {
-      Text(this.message)
-        .id('test_host_title')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-
-      Button('Run sample')
-        .id('test_host_button')
-        .onClick(() => {
-          this.message = 'clicked';
-          hilog.info(DOMAIN, 'AtomGitTest', '%{public}s', 'test host button clicked');
+    Column() {
+      if (this.session.loggedIn) {
+        ActivityPage({
+          store: this.activity,
+          session: this.session,
+          onOpenRepo: (owner: string, name: string) => {
+          }
         })
+      } else {
+        LoginPage({
+          session: this.session,
+          onLoggedIn: () => {
+          }
+        })
+      }
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
+    .id('e2e_host')
   }
 }
