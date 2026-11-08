@@ -12,7 +12,7 @@ The current collaboration scope is Activity, Todo, Issue, Pull Request, and Noti
 
 ```mermaid
 flowchart TD
-    subgraph Features[Planned feature work]
+    subgraph Features[Feature work]
       ActivityUI[Activity page and store]
       TodoUI[Todo page and store]
       IssueUI[Issue page and store]
@@ -20,13 +20,13 @@ flowchart TD
       NotificationUI[Notification page and store]
     end
 
-    ActivityUI -. depends on .-> ActivityPort[ActivityRepository contract]
+    ActivityUI --> ActivityPort[ActivityRepository contract]
     TodoUI -. depends on .-> TodoPort[TodoRepository contract]
     IssueUI -. depends on .-> IssuePort[IssueRepository contract]
     PullRequestUI -. depends on .-> PullRequestPort[PullRequestRepository contract]
     NotificationUI -. depends on .-> NotificationPort[NotificationRepository contract]
 
-    ActivityPort -. implemented by feature owner .-> ActivityAdapter[Activity adapter]
+    ActivityPort --> ActivityAdapter[Activity adapter]
     TodoPort -. implemented by feature owner .-> TodoAdapter[Todo adapter]
     IssuePort -. implemented by feature owner .-> IssueAdapter[Issue adapter]
     PullRequestPort -. implemented by feature owner .-> PullRequestAdapter[PR adapter]
@@ -47,7 +47,7 @@ flowchart TD
     Http --> API
     Shared -. used by feature adapters .-> API
 
-    ActivityUI -. typed navigation .-> Routes[AppRoute]
+    ActivityUI --> Routes[AppRoute]
     TodoUI -. typed navigation .-> Routes
     IssueUI -. publish or subscribe .-> Refresh[RefreshCoordinator]
     PullRequestUI -. publish or subscribe .-> Refresh
@@ -74,15 +74,19 @@ Solid lines show implemented runtime paths. Dotted lines show declared contracts
 | Error representation | Implemented | `ApiError` normalizes transport and HTTP failures. New adapters must preserve this type. |
 | Pagination primitives | Implemented | Offset and cursor request types, `Page<T>`, and continuation checks are the single paging API. |
 | Existing session/repository adapter | Implemented | `AtomGitRepository` serves current user, mine, repository browsing, and check runs. |
-| Collaboration ports | Contract only | Activity, Todo, Issue, PR, and Notification interfaces are declared in `repository/Ports.ets`; no collaboration adapter implements them yet. |
-| Collaboration DTOs and entities | Contract fixture | Fields follow the AtomGit payloads recorded in the project research baseline (`atomgit-cli` `138a070`); the notification, activity, pull request file, approval readback, comment, and issue detail shapes are pinned by `entry/src/test/CollaborationContract.test.ets`. Endpoint-specific mapping and live payload validation remain feature work. |
+| Collaboration ports | Partly implemented | `ActivityRepository` is implemented by `ActivityApiRepository`; Todo, Issue, PR, and Notification remain contract-only. |
+| Activity adapter and store | Implemented | Personal activity uses cursor paging and repository activity uses offset paging. The store keeps independent source state, deduplicates events, cancels stale reads, and exposes loading, refresh, empty, and error states. See `docs/activity-api-verification.md`. |
+| Activity page | Implemented | The default tab renders a compact date-grouped feed with account/project sources, pull-to-refresh, pagination, partial failure, and project-level navigation while Issue/PR detail pages are unavailable. |
+| Collaboration DTOs and entities | Partly verified | Activity payloads now include the live repository-event fields and the documented personal-event envelope. Notification, pull request file, approval readback, comment, and issue detail shapes remain recorded fixtures. |
 | Typed routes | Foundation implemented | Route factories exist; the app route registry and feature page callers are not wired to them yet. |
 | Refresh events | Foundation implemented | In-process publish/subscribe and account/domain filters exist; feature mutations and stores are not connected. |
-| Application wiring | Partial | `AppContainer` currently wires the existing `coreRepository`, session, repository browsing, and refresh coordinator. Feature adapters will be added as owners implement them. |
+| Application wiring | Partial | `AppContainer` wires `coreRepository`, session, repository browsing, refresh coordination, and the Activity feature adapter/store. Remaining feature adapters will be added as owners implement them. |
+| Device UI test harness | Passing | `entry/src/ohosTest` runs a Hypium + UiTest login-to-activity flow with deterministic repositories. The suite passes on a HarmonyOS 6.1.1 (API 24) `Pura 90` emulator. See `docs/e2e-testing.md`. |
 
-The collaboration contracts have no live (`L`/`W`) verification yet. Adapters must
-compare the recorded fixtures with real responses and update both together; a field that
-is absent from the fixtures is not a contract guarantee.
+Repository activity has anonymous live-read evidence. Personal activity authentication
+failure is live-verified, but its authenticated success payload still requires a test
+token. Contracts without live (`L`/`W`) evidence remain provisional and must be compared
+with real responses when their adapters are implemented.
 
 ## Roadmap and Issue Drafts
 
@@ -94,7 +98,7 @@ The following issues are tracked in dependency order. Update their status here a
 
 **Acceptance criteria:** Each page/store receives only its required port; existing session and repository browsing continue to use `coreRepository`; no adapter is registered before it has a real implementation.
 
-### 2. Verify and implement the Activity API adapter — [Issue #6](https://github.com/hust-open-atom-club/AtomGit-mobile4Harmony/issues/6)
+### 2. Verify and implement the Activity API adapter — partially verified — [Issue #6](https://github.com/hust-open-atom-club/AtomGit-mobile4Harmony/issues/6)
 
 **Goal:** Implement personal and repository activity reads against verified AtomGit endpoints and payloads.
 
