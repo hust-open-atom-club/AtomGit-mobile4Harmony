@@ -16,6 +16,7 @@ import displayMetricsTest from './DisplayMetrics.test';
 import regressionTest from './Regression.test';
 import collaborationContractTest from './CollaborationContract.test';
 import activityRepositoryTest from './ActivityRepository.test';
+import activityStoreTest from './ActivityStore.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -36,4 +37,5 @@ export default function testsuite() {
   regressionTest();
   collaborationContractTest();
   activityRepositoryTest();
+  activityStoreTest();
 }

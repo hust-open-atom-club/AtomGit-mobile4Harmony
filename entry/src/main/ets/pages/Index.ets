@@ -12,6 +12,7 @@ import { glassBorderColor } from '../components/Materials';
 import { ErrorView } from '../components/StatusViews';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
 import { LoadState, SessionStore } from '../viewmodel/SessionStore';
+import { ActivityStore } from '../viewmodel/ActivityStore';
 import { ActivityPage } from './activity/ActivityPage';
 import { NotificationPage } from './notification/NotificationPage';
 import { LoginPage } from './login/LoginPage';
@@ -51,6 +52,7 @@ struct Index {
 
   @Local session: SessionStore | undefined = undefined;
   @Local repoBrowse: RepoBrowseStore | undefined = undefined;
+  @Local activity: ActivityStore | undefined = undefined;
   @Local currentTab: number = 0;
   @Local bootstrapped: boolean = false;
   @Local booting: boolean = true;
@@ -92,6 +94,7 @@ struct Index {
     }
     this.session = c.session;
     this.repoBrowse = c.repoBrowse;
+    this.activity = c.activity;
     try {
       await c.bootstrap();
     } catch (err) {
@@ -100,6 +103,7 @@ struct Index {
       this.bootError = '登录态恢复失败，请重试';
       this.session = undefined;
       this.repoBrowse = undefined;
+      this.activity = undefined;
     } finally {
       this.booting = false;
     }
@@ -216,7 +220,13 @@ struct Index {
   @Builder
   tabContents(): void {
     TabContent() {
-      ActivityPage()
+      ActivityPage({
+        store: this.activity as ActivityStore,
+        session: this.session as SessionStore,
+        onOpenRepo: (owner: string, name: string) => {
+          this.openRepo(owner, name);
+        }
+      })
     }
     .tabBar(this.tabItem(0, this.tabs[0]))
 
@@ -374,7 +384,13 @@ struct Index {
 
         Column() {
           if (this.currentTab === 0) {
-            ActivityPage()
+            ActivityPage({
+              store: this.activity as ActivityStore,
+              session: this.session as SessionStore,
+              onOpenRepo: (owner: string, name: string) => {
+                this.openRepo(owner, name);
+              }
+            })
           } else if (this.currentTab === 1) {
             TodoPage()
           } else if (this.currentTab === 2) {
