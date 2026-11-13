@@ -168,6 +168,127 @@ export const TRUSTED_HOSTS: string[] = [
   'api.atomgit.com'
 ];
 
+export const MAX_REDIRECT_FOLLOWS: number = 3;
+
+export const REDIRECT_BLOCKED_CODE: number = 2300047;
+
+export function isRedirectBlockedCode(code: number): boolean {
+  return code === REDIRECT_BLOCKED_CODE;
+}
+
+const REDIRECT_STATUSES: number[] = [301, 302, 303, 307, 308];
+
+export function isRedirectStatus(status: number): boolean {
+  return REDIRECT_STATUSES.indexOf(status) >= 0;
+}
+
+export function extractAuthority(url: string): string {
+  const schemeIdx: number = url.indexOf('://');
+  if (schemeIdx < 0) {
+    return '';
+  }
+  const afterScheme: string = url.substring(schemeIdx + 3);
+  const slash: number = afterScheme.indexOf('/');
+  const query: number = afterScheme.indexOf('?');
+  const hash: number = afterScheme.indexOf('#');
+  let end: number = afterScheme.length;
+  if (slash >= 0 && slash < end) {
+    end = slash;
+  }
+  if (query >= 0 && query < end) {
+    end = query;
+  }
+  if (hash >= 0 && hash < end) {
+    end = hash;
+  }
+  return afterScheme.substring(0, end).toLowerCase();
+}
+
+export function isSameOrigin(originalUrl: string, targetUrl: string): boolean {
+  const scheme: string = extractScheme(originalUrl);
+  if (scheme.length === 0 || scheme !== extractScheme(targetUrl)) {
+    return false;
+  }
+  const authority: string = extractAuthority(originalUrl);
+  if (authority.length === 0) {
+    return false;
+  }
+  return authority === extractAuthority(targetUrl);
+}
+
+export function resolveRedirectTarget(originalUrl: string, location: string): string | undefined {
+  const loc: string = (location ?? '').trim();
+  if (loc.length === 0) {
+    return undefined;
+  }
+  let target: string;
+  if (loc.indexOf('://') > 0) {
+    target = loc;
+  } else if (loc.startsWith('//')) {
+    const scheme: string = extractScheme(originalUrl);
+    if (scheme.length === 0) {
+      return undefined;
+    }
+    target = scheme + ':' + loc;
+  } else if (loc.startsWith('/')) {
+    const schemeIdx: number = originalUrl.indexOf('://');
+    if (schemeIdx < 0) {
+      return undefined;
+    }
+    const afterScheme: string = originalUrl.substring(schemeIdx + 3);
+    const slash: number = afterScheme.indexOf('/');
+    if (slash < 0) {
+      return undefined;
+    }
+    target = originalUrl.substring(0, schemeIdx + 3 + slash) + loc;
+  } else {
+    return undefined;
+  }
+  if (TRUSTED_SCHEMES.indexOf(extractScheme(target)) < 0) {
+    return undefined;
+  }
+  if (!isSameOrigin(originalUrl, target)) {
+    return undefined;
+  }
+  return target;
+}
+
+export class RedirectDecision {
+  readonly follow: boolean;
+  readonly targetUrl: string;
+  readonly method: HttpMethod;
+  readonly body: string | undefined;
+  readonly reason: string;
+
+  constructor(follow: boolean, targetUrl: string, method: HttpMethod,
+    body: string | undefined, reason: string) {
+    this.follow = follow;
+    this.targetUrl = targetUrl;
+    this.method = method;
+    this.body = body;
+    this.reason = reason;
+  }
+}
+
+export function decideRedirect(status: number, method: HttpMethod, body: string | undefined,
+  currentUrl: string, location: string, hop: number): RedirectDecision {
+  const target: string | undefined = resolveRedirectTarget(currentUrl, location);
+  if (target === undefined) {
+    return new RedirectDecision(false, currentUrl, method, body,
+      'redirect target is not same-origin https');
+  }
+  if (hop >= MAX_REDIRECT_FOLLOWS) {
+    return new RedirectDecision(false, currentUrl, method, body, 'too many redirects');
+  }
+  let next: HttpMethod = method;
+  let nextBody: string | undefined = body;
+  if (status === 303 || ((status === 301 || status === 302) && method !== HttpMethod.GET)) {
+    next = HttpMethod.GET;
+    nextBody = undefined;
+  }
+  return new RedirectDecision(true, target, next, nextBody, '');
+}
+
 export function extractHost(url: string): string {
   const schemeIdx: number = url.indexOf('://');
   if (schemeIdx < 0) {
