@@ -13,8 +13,12 @@ import {
   HttpMethod,
   MAX_RESPONSE_BYTES,
   MAX_RETRIES,
+  REDIRECT_BLOCKED_CODE,
   RetryContext,
   computeDelayMs,
+  decideRedirect,
+  isRedirectBlockedCode,
+  isRedirectStatus,
   isTrustedUrl,
   parseRetryAfter,
   shouldRetry
@@ -90,6 +94,48 @@ export interface TokenSource {
   currentToken(): string | undefined;
 }
 
+class RedirectSignal extends Error {
+  readonly status: number;
+  readonly location: string;
+
+  constructor(status: number, location: string) {
+    super('redirect ' + status);
+    this.status = status;
+    this.location = location;
+  }
+}
+
+export function isRedirectBlockedError(err: Object): boolean {
+  if (err instanceof ApiError) {
+    return false;
+  }
+  const be = err as BusinessError;
+  if (be === undefined || be === null) {
+    return false;
+  }
+  return isRedirectBlockedCode(be.code);
+}
+
+export function buildRequestOptions(method: HttpMethod, body: string | undefined,
+  headers: Record<string, string>, config: HttpConfig): http.HttpRequestOptions {
+  const options: http.HttpRequestOptions = {
+    method: toRequestMethod(method),
+    header: headers,
+    expectDataType: http.HttpDataType.STRING,
+    usingCache: false,
+    connectTimeout: config.connectTimeoutMs,
+    readTimeout: config.readTimeoutMs,
+    maxLimit: config.maxBytes
+  };
+  if (body !== undefined) {
+    options.extraData = body;
+  }
+  if (headers['Authorization'] !== undefined) {
+    options.maxRedirects = 0;
+  }
+  return options;
+}
+
 export class HttpClient implements HttpPort {
   private readonly config: HttpConfig;
   private tokenSource: TokenSource | undefined;
@@ -147,26 +193,58 @@ export class HttpClient implements HttpPort {
 
   private async once(spec: RequestSpec, headers: Record<string, string>, url: string,
     cancel?: CancellationSignal): Promise<HttpResult> {
+    const authenticated: boolean = headers['Authorization'] !== undefined;
+    let currentUrl: string = url;
+    let method: HttpMethod = spec.method;
+    let body: string | undefined = spec.body;
+    let hop = 0;
+    for (;;) {
+      if (cancel !== undefined && cancel.isCanceled()) {
+        throw new ApiError(ApiErrorKind.Canceled, 0, 0, 'canceled', '', redactUrl(currentUrl));
+      }
+      let signal: RedirectSignal | undefined = undefined;
+      let result: HttpResult | undefined = undefined;
+      try {
+        result = await this.executeOne(headers, currentUrl, method, body, authenticated, cancel);
+      } catch (err) {
+        if (err instanceof RedirectSignal) {
+          signal = err;
+        } else if (err instanceof ApiError) {
+          throw err;
+        } else {
+          throw this.asApiError(err, currentUrl);
+        }
+      }
+      if (signal === undefined) {
+        return result as HttpResult;
+      }
+      const decision = decideRedirect(signal.status, method, body, currentUrl, signal.location, hop);
+      if (!decision.follow) {
+        hilog.warn(DOMAIN, 'AtomGit', 'redirect refused: %{public}s', decision.reason);
+        throw new ApiError(ApiErrorKind.UnsafeRequest, signal.status, 0,
+          decision.reason, '', redactUrl(currentUrl));
+      }
+      currentUrl = decision.targetUrl;
+      method = decision.method;
+      body = decision.body;
+      hop++;
+    }
+  }
+
+  private async executeOne(headers: Record<string, string>, url: string, method: HttpMethod,
+    body: string | undefined, authenticated: boolean, cancel?: CancellationSignal): Promise<HttpResult> {
     const client = http.createHttp();
     try {
-      const options: http.HttpRequestOptions = {
-        method: toRequestMethod(spec.method),
-        header: headers,
-        expectDataType: http.HttpDataType.STRING,
-        usingCache: false,
-        connectTimeout: this.config.connectTimeoutMs,
-        readTimeout: this.config.readTimeoutMs,
-        maxLimit: this.config.maxBytes
-      };
-      if (spec.body !== undefined) {
-        options.extraData = spec.body;
-      }
+      const options = buildRequestOptions(method, body, headers, this.config);
       const resp = await client.request(url, options);
       const status = typeof resp.responseCode === 'number' ? resp.responseCode : 0;
       const rawResult = resp.result;
       let bodyText = '';
       if (typeof rawResult === 'string') {
         bodyText = rawResult;
+      }
+      if (authenticated && isRedirectStatus(status)) {
+        throw new RedirectSignal(status, readHeader(resp.header, 'location') ?? '');
       }
       if (status < 200 || status >= 300) {
         // Retry-After 存进 error.message 供重试使用
@@ -178,11 +256,18 @@ export class HttpClient implements HttpPort {
       const truncated = bodyText.length >= this.config.maxBytes;
       return new HttpResult(bodyText, status, readHeader(resp.header, 'retry-after'), truncated);
     } catch (err) {
+      if (err instanceof RedirectSignal) {
+        throw err;
+      }
       if (err instanceof ApiError) {
         throw err;
       }
       if (cancel !== undefined && cancel.isCanceled()) {
         throw new ApiError(ApiErrorKind.Canceled, 0, 0, 'canceled', '', redactUrl(url));
+      }
+      if (authenticated && isRedirectBlockedError(err)) {
+        throw new ApiError(ApiErrorKind.UnsafeRequest, 0, REDIRECT_BLOCKED_CODE,
+          'redirects are not followed on authenticated requests', '', redactUrl(url));
       }
       throw this.asApiError(err, url);
     } finally {

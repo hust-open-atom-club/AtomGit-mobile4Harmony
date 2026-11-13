@@ -5,7 +5,15 @@ import { OffsetPageRequest, Page } from '../main/ets/common/Pager';
 import { WorkflowRunDto } from '../main/ets/model/Dtos';
 import { RepoEntry, RepoSummary } from '../main/ets/model/Entities';
 import { toCheckRun } from '../main/ets/model/Mappers';
-import { toTransportApiError } from '../main/ets/network/HttpClient';
+import { buildRequestOptions, defaultConfig, isRedirectBlockedError, toTransportApiError }
+  from '../main/ets/network/HttpClient';
+import {
+  HttpMethod,
+  MAX_REDIRECT_FOLLOWS,
+  decideRedirect,
+  isRedirectStatus,
+  resolveRedirectTarget
+} from '../main/ets/network/NetworkPolicy';
 import { AccountGuard } from '../main/ets/security/TokenEnvelope';
 import { CacheCleaner } from '../main/ets/storage/StoragePorts';
 import { LoadState, SessionStore } from '../main/ets/viewmodel/SessionStore';
@@ -176,6 +184,83 @@ export default function regressionTest() {
         expect(store.errorMessage).assertEqual('');
         expect(store.state).assertEqual(LoadState.Ready);
       });
+    });
+  });
+
+  describe('RedirectGuard', () => {
+    const ORIGIN = 'https://api.atomgit.com/api/v5/user';
+
+    it('authenticated_requests_disable_platform_redirects', 0, () => {
+      const authed = buildRequestOptions(HttpMethod.GET, undefined,
+        { 'Accept': 'application/json', 'Authorization': 'Bearer token-1' }, defaultConfig());
+      expect(authed.maxRedirects).assertEqual(0);
+      const anonymous = buildRequestOptions(HttpMethod.GET, undefined,
+        { 'Accept': 'application/json' }, defaultConfig());
+      expect(anonymous.maxRedirects === undefined).assertTrue();
+    });
+
+    it('redirect_status_list_matches_http_semantics', 0, () => {
+      expect(isRedirectStatus(301)).assertTrue();
+      expect(isRedirectStatus(302)).assertTrue();
+      expect(isRedirectStatus(303)).assertTrue();
+      expect(isRedirectStatus(307)).assertTrue();
+      expect(isRedirectStatus(308)).assertTrue();
+      expect(isRedirectStatus(304)).assertFalse();
+      expect(isRedirectStatus(200)).assertFalse();
+      expect(isRedirectStatus(404)).assertFalse();
+    });
+
+    it('redirect_target_accepts_only_same_origin_https', 0, () => {
+      expect(resolveRedirectTarget(ORIGIN, 'https://api.atomgit.com/api/v6/user'))
+        .assertEqual('https://api.atomgit.com/api/v6/user');
+      expect(resolveRedirectTarget(ORIGIN, '/api/v5/user/repos'))
+        .assertEqual('https://api.atomgit.com/api/v5/user/repos');
+      expect(resolveRedirectTarget(ORIGIN, 'http://api.atomgit.com/api/v5/user') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, 'https://evil.example.com/api/v5/user') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, '//evil.example.com/x') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, 'https://evil.com@api.atomgit.com/') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, 'https://api.atomgit.com.evil.com/x') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, '') === undefined).assertTrue();
+      expect(resolveRedirectTarget(ORIGIN, 'relative/path') === undefined).assertTrue();
+    });
+
+    it('redirect_decision_follows_same_origin_and_downgrades_303', 0, () => {
+      const d303 = decideRedirect(303, HttpMethod.POST, '{}', ORIGIN, '/api/v5/b', 0);
+      expect(d303.follow).assertTrue();
+      expect(d303.method).assertEqual(HttpMethod.GET);
+      expect(d303.body === undefined).assertTrue();
+      expect(d303.targetUrl).assertEqual('https://api.atomgit.com/api/v5/b');
+      const d307 = decideRedirect(307, HttpMethod.POST, '{}', ORIGIN, '/api/v5/b', 0);
+      expect(d307.follow).assertTrue();
+      expect(d307.method).assertEqual(HttpMethod.POST);
+      expect(d307.body).assertEqual('{}');
+      const d302 = decideRedirect(302, HttpMethod.GET, undefined, ORIGIN, '/api/v5/b', 0);
+      expect(d302.follow).assertTrue();
+      expect(d302.method).assertEqual(HttpMethod.GET);
+    });
+
+    it('redirect_decision_rejects_cross_host_and_hop_limit', 0, () => {
+      const cross = decideRedirect(302, HttpMethod.GET, undefined, ORIGIN,
+        'https://evil.example.com/x', 0);
+      expect(cross.follow).assertFalse();
+      expect(cross.reason.length > 0).assertTrue();
+      const limit = decideRedirect(302, HttpMethod.GET, undefined, ORIGIN,
+        '/api/v5/b', MAX_REDIRECT_FOLLOWS);
+      expect(limit.follow).assertFalse();
+    });
+
+    it('platform_redirect_blocked_error_is_recognized', 0, () => {
+      class BlockedError {
+        code: number = 2300047;
+        message: string = 'too many redirects';
+      }
+      class OtherError {
+        code: number = 2300006;
+        message: string = 'other';
+      }
+      expect(isRedirectBlockedError(new BlockedError())).assertTrue();
+      expect(isRedirectBlockedError(new OtherError())).assertFalse();
+      expect(isRedirectBlockedError(new ApiError(ApiErrorKind.Network, 0, 0, 'x', '', ''))).assertFalse();
     });
   });
 }
