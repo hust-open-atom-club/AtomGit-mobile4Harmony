@@ -89,6 +89,7 @@ export class PullRequestDetailStore {
   private readonly commentsPerPage: number;
   private currentUserLogin: string;
   private approvalSucceededCallback: () => void;
+  private commentSucceededCallback: (ref: RepositoryItemRef) => void;
   private reviewedHeadSha: string = '';
   private commentsNextRequest: PageRequest | undefined = undefined;
   private detailRevision: number = 0;
@@ -104,13 +105,15 @@ export class PullRequestDetailStore {
 
   constructor(dataSource: PullRequestRepository, currentUserLogin: string = '',
     commentsPerPage: number = 20, filesOptions: PullRequestFilesOptions = new PullRequestFilesOptions(),
-    onApprovalSucceeded: () => void = () => {}) {
+    onApprovalSucceeded: () => void = () => {},
+    onCommentSucceeded: (ref: RepositoryItemRef) => void = () => {}) {
     this.dataSource = dataSource;
     this.currentUserLogin = currentUserLogin.trim();
     this.commentsPerPage = Number.isFinite(commentsPerPage) && commentsPerPage >= 1
       ? Math.floor(commentsPerPage) : 20;
     this.filesOptions = filesOptions;
     this.approvalSucceededCallback = onApprovalSucceeded;
+    this.commentSucceededCallback = onCommentSucceeded;
   }
 
   setCurrentUser(login: string): void {
@@ -119,6 +122,10 @@ export class PullRequestDetailStore {
 
   setApprovalSucceededCallback(callback: () => void): void {
     this.approvalSucceededCallback = callback;
+  }
+
+  setCommentSucceededCallback(callback: (ref: RepositoryItemRef) => void): void {
+    this.commentSucceededCallback = callback;
   }
 
   async open(ref: RepositoryItemRef): Promise<void> {
@@ -334,6 +341,11 @@ export class PullRequestDetailStore {
       }
       this.commentDraft = '';
       this.commentSubmissionConfirmed = true;
+      try {
+        this.commentSucceededCallback(ref);
+      } catch {
+        // A host refresh callback must not turn a confirmed write into a failure.
+      }
       return true;
     } catch (err) {
       if (!this.isCommentWriteCurrent(revision, token)) {

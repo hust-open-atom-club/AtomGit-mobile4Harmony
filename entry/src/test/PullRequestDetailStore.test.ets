@@ -257,6 +257,12 @@ export default function pullRequestDetailStoreTest() {
       const repository = new FakePullRequestRepository();
       repository.detailResponses.push(detail());
       const store = new PullRequestDetailStore(repository, 'alice');
+      let callbackCount = 0;
+      let callbackKey = '';
+      store.setCommentSucceededCallback((ref: RepositoryItemRef) => {
+        callbackCount++;
+        callbackKey = ref.key();
+      });
       return store.open(REF).then(() => {
         store.setCommentDraft('Hello');
         const add = new VoidDeferred();
@@ -275,6 +281,8 @@ export default function pullRequestDetailStoreTest() {
         expect(store.commentDraft).assertEqual('');
         expect(store.commentSubmissionConfirmed).assertTrue();
         expect(store.comments[0].id).assertEqual('new-comment');
+        expect(callbackCount).assertEqual(1);
+        expect(callbackKey).assertEqual('owner/repo#42');
       });
     });
 
@@ -285,6 +293,10 @@ export default function pullRequestDetailStoreTest() {
         'invalid', '', '/comments');
       repository.addError = writeError;
       const store = new PullRequestDetailStore(repository, 'alice');
+      let callbackCount = 0;
+      store.setCommentSucceededCallback(() => {
+        callbackCount++;
+      });
       return store.open(REF).then(() => {
         store.setCommentDraft('Keep me');
         return store.sendComment();
@@ -293,6 +305,7 @@ export default function pullRequestDetailStoreTest() {
         expect(store.commentDraft).assertEqual('Keep me');
         expect(store.commentError === writeError).assertTrue();
         expect(store.commentSubmissionConfirmed).assertFalse();
+        expect(callbackCount).assertEqual(0);
       });
     });
 

@@ -1,21 +1,25 @@
 import { common } from '@kit.AbilityKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 import { HttpClient, defaultConfig } from '../network/HttpClient';
 import { ActivityApiRepository } from '../repository/ActivityRepository';
 import { IssueApiRepository } from '../repository/IssueRepository';
 import { PullRequestApiRepository } from '../repository/PullRequestRepository';
+import { TodoApiRepository } from '../repository/TodoRepository';
 import { PullRequestFilesOptions } from '../repository/Ports';
 import { AtomGitRepository } from '../repository/AtomGitRepository';
 import { AccountGuard } from '../security/TokenEnvelope';
 import { TokenCipher } from '../security/TokenCipher';
 import { CacheStore } from '../storage/CacheStore';
 import { SettingsStore } from '../storage/SettingsStore';
+import { RepositoryItemRef } from '../model/CollaborationEntities';
 import { ActivityStore } from '../viewmodel/ActivityStore';
 import { IssueDetailStore } from '../viewmodel/IssueDetailStore';
 import { PullRequestDetailStore } from '../viewmodel/PullRequestDetailStore';
+import { TodoStore } from '../viewmodel/TodoStore';
 import { SessionStore } from '../viewmodel/SessionStore';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
-import { RefreshCoordinator, RefreshDomain } from './RefreshCoordinator';
+import { RefreshCoordinator, RefreshDomain, RefreshEvent } from './RefreshCoordinator';
 
 @ObservedV2
 export class AppContainer {
@@ -33,6 +37,10 @@ export class AppContainer {
   readonly pullRequestRepository: PullRequestApiRepository;
   /** Shared pull request review state for the routed reference. */
   readonly pullRequestDetail: PullRequestDetailStore;
+  /** Todo workbench repository for the authenticated user. */
+  readonly todoRepository: TodoApiRepository;
+  /** Shared Todo workbench state for the authenticated user. */
+  readonly todo: TodoStore;
   /** Shared in-process invalidation channel for feature stores. */
   readonly refresh: RefreshCoordinator;
   /** Existing data source for session and repository browsing. */
@@ -54,20 +62,25 @@ export class AppContainer {
     this.repoBrowse = new RepoBrowseStore(this.coreRepository);
     this.activity = new ActivityStore(new ActivityApiRepository(this.http));
     this.issueRepository = new IssueApiRepository(this.http);
-    this.issueDetail = new IssueDetailStore(this.issueRepository);
+    this.todoRepository = new TodoApiRepository(this.http);
+    this.todo = new TodoStore(this.todoRepository);
+    this.issueDetail = new IssueDetailStore(this.issueRepository, (ref: RepositoryItemRef) => {
+      this.publishCollaborationRefresh(RefreshDomain.Issue, ref);
+    });
     this.pullRequestRepository = new PullRequestApiRepository(this.http);
     this.pullRequestDetail = new PullRequestDetailStore(this.pullRequestRepository, '', 20,
       new PullRequestFilesOptions(), () => {
-        const user = this.session.user;
         const ref = this.pullRequestDetail.ref;
-        if (user !== undefined && ref !== undefined) {
-          this.refresh.publish(RefreshDomain.PullRequest, user.accountId,
-            'approval-confirmed', ref.owner + '/' + ref.repo, ref.key());
+        if (ref !== undefined) {
+          this.publishCollaborationRefresh(RefreshDomain.PullRequest, ref);
         }
+      }, (ref: RepositoryItemRef) => {
+        this.publishCollaborationRefresh(RefreshDomain.PullRequest, ref);
       });
     this.http.setTokenSource(this.session.tokenSource());
     this.settings.open(ctx);
     this.cache.open(ctx);
+    this.subscribeTodoRefresh();
   }
 
   async bootstrap(): Promise<void> {
@@ -80,5 +93,25 @@ export class AppContainer {
     const login = this.session.user === undefined ? '' : this.session.user.login;
     this.pullRequestRepository.setCurrentUser(login);
     this.pullRequestDetail.setCurrentUser(login);
+  }
+
+  private publishCollaborationRefresh(domain: RefreshDomain, ref: RepositoryItemRef): void {
+    const user = this.session.user;
+    if (user === undefined) {
+      return;
+    }
+    this.refresh.publish(domain, user.accountId, 'collaboration-write-confirmed',
+      ref.owner + '/' + ref.repo, ref.key());
+  }
+
+  private subscribeTodoRefresh(): void {
+    this.refresh.subscribe((event: RefreshEvent) => {
+      if (event.domain !== RefreshDomain.Issue && event.domain !== RefreshDomain.PullRequest) {
+        return;
+      }
+      this.todo.refreshForAccount(event.accountId).catch((err: Error) => {
+        hilog.warn(0x0000, 'AtomGit', 'Todo refresh failed: %{public}s', err.message);
+      });
+    });
   }
 }

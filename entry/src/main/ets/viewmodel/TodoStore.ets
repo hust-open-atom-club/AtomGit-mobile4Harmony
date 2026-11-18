@@ -163,6 +163,10 @@ export class TodoStore {
   private accountKey: string = '';
   private projectKey: string = '';
   private generation: number = 0;
+  private refreshInFlight: Promise<boolean> | undefined = undefined;
+  private lastRefreshAt: number = -1;
+  private readonly refreshCoalesceMs: number;
+  private readonly now: () => number;
 
   private assignedIssuesState: TodoScopeState = new TodoScopeState(TodoScope.AssignedIssues);
   private assignedPullRequestsState: TodoScopeState =
@@ -175,8 +179,11 @@ export class TodoStore {
   private createdPullRequestsState: TodoScopeState =
     new TodoScopeState(TodoScope.CreatedPullRequests);
 
-  constructor(dataSource: TodoRepository) {
+  constructor(dataSource: TodoRepository, refreshCoalesceMs: number = 2500,
+    now: () => number = () => Date.now()) {
     this.dataSource = dataSource;
+    this.refreshCoalesceMs = refreshCoalesceMs;
+    this.now = now;
   }
 
   initialize(accountId: string, projectScope: string = ''): void {
@@ -188,6 +195,8 @@ export class TodoStore {
     this.reset();
     this.accountKey = nextAccount;
     this.projectKey = nextProject;
+    this.refreshInFlight = undefined;
+    this.lastRefreshAt = -1;
   }
 
   stateFor(scope: TodoScope): TodoScopeState {
@@ -229,6 +238,33 @@ export class TodoStore {
 
   async refreshScope(scope: TodoScope): Promise<void> {
     await this.load(scope, true);
+  }
+
+  /** Refresh only for the active account, coalescing bursts from related writes. */
+  refreshForAccount(accountId: string): Promise<boolean> {
+    const eventAccount = accountId.trim();
+    if (eventAccount.length === 0 || this.accountKey.length === 0
+      || eventAccount !== this.accountKey) {
+      return Promise.resolve(false);
+    }
+    if (this.refreshInFlight !== undefined) {
+      return this.refreshInFlight;
+    }
+    const current = this.now();
+    if (this.lastRefreshAt >= 0 && current - this.lastRefreshAt < this.refreshCoalesceMs) {
+      return Promise.resolve(false);
+    }
+    let task: Promise<boolean>;
+    task = this.refresh().then(() => {
+      this.lastRefreshAt = this.now();
+      return true;
+    }).finally(() => {
+      if (this.refreshInFlight === task) {
+        this.refreshInFlight = undefined;
+      }
+    });
+    this.refreshInFlight = task;
+    return task;
   }
 
   async ensureLoaded(scope: TodoScope): Promise<void> {

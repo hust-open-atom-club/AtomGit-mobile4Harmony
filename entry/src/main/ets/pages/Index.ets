@@ -12,12 +12,13 @@ import { GlassCard } from '../components/GlassCard';
 import { glassBorderColor } from '../components/Materials';
 import { ErrorView } from '../components/StatusViews';
 import { AppRoute, AppRouteName, IssueDetailParams, PullRequestDetailParams } from '../navigation/AppRoute';
-import { RepositoryItemKind, RepositoryItemRef } from '../model/CollaborationEntities';
+import { RepositoryItemKind, RepositoryItemRef, WorkItem } from '../model/CollaborationEntities';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
 import { LoadState, SessionStore } from '../viewmodel/SessionStore';
 import { ActivityStore } from '../viewmodel/ActivityStore';
 import { IssueDetailStore } from '../viewmodel/IssueDetailStore';
 import { PullRequestDetailStore } from '../viewmodel/PullRequestDetailStore';
+import { TodoStore } from '../viewmodel/TodoStore';
 import { ActivityPage } from './activity/ActivityPage';
 import { IssueDetailPage } from './issue/IssueDetailPage';
 import { PullRequestDetailPage } from './pull/PullRequestDetailPage';
@@ -61,6 +62,7 @@ struct Index {
   @Local activity: ActivityStore | undefined = undefined;
   @Local issueDetail: IssueDetailStore | undefined = undefined;
   @Local pullRequestDetail: PullRequestDetailStore | undefined = undefined;
+  @Local todo: TodoStore | undefined = undefined;
   @Local currentTab: number = 0;
   @Local bootstrapped: boolean = false;
   @Local booting: boolean = true;
@@ -106,6 +108,7 @@ struct Index {
     this.activity = c.activity;
     this.issueDetail = c.issueDetail;
     this.pullRequestDetail = c.pullRequestDetail;
+    this.todo = c.todo;
     try {
       await c.bootstrap();
     } catch (err) {
@@ -117,6 +120,7 @@ struct Index {
       this.activity = undefined;
       this.issueDetail = undefined;
       this.pullRequestDetail = undefined;
+      this.todo = undefined;
     } finally {
       this.booting = false;
     }
@@ -323,7 +327,13 @@ struct Index {
     .tabBar(this.tabItem(0, this.tabs[0]))
 
     TabContent() {
-      TodoPage()
+      TodoPage({
+        store: this.todo as TodoStore,
+        session: this.session as SessionStore,
+        onOpenItem: (item: WorkItem) => {
+          this.openTarget(item.ref, item.kind, item.ref.owner + '/' + item.ref.repo);
+        }
+      })
     }
     .tabBar(this.tabItem(1, this.tabs[1]))
 
@@ -485,7 +495,13 @@ struct Index {
               }
             })
           } else if (this.currentTab === 1) {
-            TodoPage()
+            TodoPage({
+              store: this.todo as TodoStore,
+              session: this.session as SessionStore,
+              onOpenItem: (item: WorkItem) => {
+                this.openTarget(item.ref, item.kind, item.ref.owner + '/' + item.ref.repo);
+              }
+            })
           } else if (this.currentTab === 2) {
             NotificationPage()
           } else {

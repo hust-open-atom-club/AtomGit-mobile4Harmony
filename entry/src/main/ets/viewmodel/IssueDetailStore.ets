@@ -95,14 +95,17 @@ export class IssueDetailStore {
   @Trace lastUpdatedAt: string = '';
 
   private readonly dataSource: IssueRepository;
+  private readonly commentPostedCallback: (ref: RepositoryItemRef) => void;
   private ref: RepositoryItemRef = new RepositoryItemRef('', '', 0);
   private request: OffsetPageRequest = new OffsetPageRequest();
   private busy: boolean = false;
   private revision: number = 0;
   private cancelToken: CancelToken | undefined = undefined;
 
-  constructor(dataSource: IssueRepository) {
+  constructor(dataSource: IssueRepository,
+    onCommentPosted: (ref: RepositoryItemRef) => void = () => {}) {
     this.dataSource = dataSource;
+    this.commentPostedCallback = onCommentPosted;
   }
 
   initialize(ref: RepositoryItemRef): void {
@@ -399,6 +402,11 @@ export class IssueDetailStore {
     this.commentPosted = true;
     this.sendErrorMessage = '';
     this.state = LoadState.Ready;
+    try {
+      this.commentPostedCallback(this.ref);
+    } catch {
+      // A host refresh callback must not turn a confirmed write into a failure.
+    }
     return true;
   }
 

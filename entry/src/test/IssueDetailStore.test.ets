@@ -108,8 +108,9 @@ function page(items: CollaborationComment[], request: PageRequest,
   return new Page<CollaborationComment>(items, request, next);
 }
 
-function storeWith(repository: FakeIssueRepository): IssueDetailStore {
-  const store = new IssueDetailStore(repository);
+function storeWith(repository: FakeIssueRepository,
+  onCommentPosted: (ref: RepositoryItemRef) => void = () => {}): IssueDetailStore {
+  const store = new IssueDetailStore(repository, onCommentPosted);
   store.initialize(new RepositoryItemRef('owner', 'repo', 7));
   return store;
 }
@@ -201,7 +202,12 @@ export default function issueDetailStoreTest() {
       data.issueResults.push(issue());
       data.commentResults.push(page([], new OffsetPageRequest()));
       data.commentResults.push(page([comment('created', 'Looks good')], new OffsetPageRequest()));
-      const store = storeWith(data);
+      let callbackCount = 0;
+      let callbackKey = '';
+      const store = storeWith(data, (ref: RepositoryItemRef) => {
+        callbackCount++;
+        callbackKey = ref.key();
+      });
       return store.load().then(() => {
         store.updateDraft('Looks good');
         return store.submitComment();
@@ -215,6 +221,8 @@ export default function issueDetailStoreTest() {
         expect(store.draft).assertEqual('');
         expect(store.successMessage).assertEqual('Comment posted');
         expect(store.commentPosted).assertTrue();
+        expect(callbackCount).assertEqual(1);
+        expect(callbackKey).assertEqual('owner/repo#7');
       });
     });
 
@@ -243,7 +251,10 @@ export default function issueDetailStoreTest() {
       data.commentResults.push(page([], new OffsetPageRequest()));
       data.commentResults.push(new ApiError(ApiErrorKind.Network, 0, 0,
         'offline', '', '/comments'));
-      const store = storeWith(data);
+      let callbackCount = 0;
+      const store = storeWith(data, () => {
+        callbackCount++;
+      });
       return store.load().then(() => {
         store.updateDraft('Unconfirmed comment');
         return store.submitComment();
@@ -253,6 +264,7 @@ export default function issueDetailStoreTest() {
         expect(store.successMessage).assertEqual('');
         expect(store.commentPosted).assertFalse();
         expect(store.sendErrorMessage.indexOf('confirmation failed') >= 0).assertTrue();
+        expect(callbackCount).assertEqual(0);
       });
     });
 
