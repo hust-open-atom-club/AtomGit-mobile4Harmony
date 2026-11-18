@@ -126,11 +126,15 @@ export class PullRequestHeadMismatchError extends ApiError {
  */
 export class PullRequestApiRepository implements PullRequestRepository {
   private readonly http: HttpPort;
-  private readonly knownCurrentUserLogin: string;
+  private knownCurrentUserLogin: string;
 
   constructor(http: HttpPort, currentUserLogin: string = '') {
     this.http = http;
     this.knownCurrentUserLogin = currentUserLogin.trim();
+  }
+
+  setCurrentUser(login: string): void {
+    this.knownCurrentUserLogin = login.trim();
   }
 
   async pullRequest(ref: RepositoryItemRef, cancel?: CancellationSignal): Promise<PullRequestDetail> {

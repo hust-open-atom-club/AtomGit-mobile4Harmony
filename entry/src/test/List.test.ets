@@ -19,6 +19,8 @@ import activityRepositoryTest from './ActivityRepository.test';
 import activityStoreTest from './ActivityStore.test';
 import issueRepositoryTest from './IssueRepository.test';
 import issueDetailStoreTest from './IssueDetailStore.test';
+import pullRequestRepositoryTest from './PullRequestRepository.test';
+import pullRequestDetailStoreTest from './PullRequestDetailStore.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -42,4 +44,6 @@ export default function testsuite() {
   activityStoreTest();
   issueRepositoryTest();
   issueDetailStoreTest();
+  pullRequestRepositoryTest();
+  pullRequestDetailStoreTest();
 }

@@ -11,14 +11,16 @@ import { Dimens, FontSize, Radius } from '../components/DesignTokens';
 import { GlassCard } from '../components/GlassCard';
 import { glassBorderColor } from '../components/Materials';
 import { ErrorView } from '../components/StatusViews';
-import { AppRoute, AppRouteName, IssueDetailParams } from '../navigation/AppRoute';
+import { AppRoute, AppRouteName, IssueDetailParams, PullRequestDetailParams } from '../navigation/AppRoute';
 import { RepositoryItemKind, RepositoryItemRef } from '../model/CollaborationEntities';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
 import { LoadState, SessionStore } from '../viewmodel/SessionStore';
 import { ActivityStore } from '../viewmodel/ActivityStore';
 import { IssueDetailStore } from '../viewmodel/IssueDetailStore';
+import { PullRequestDetailStore } from '../viewmodel/PullRequestDetailStore';
 import { ActivityPage } from './activity/ActivityPage';
 import { IssueDetailPage } from './issue/IssueDetailPage';
+import { PullRequestDetailPage } from './pull/PullRequestDetailPage';
 import { NotificationPage } from './notification/NotificationPage';
 import { LoginPage } from './login/LoginPage';
 import { MinePage } from './mine/MinePage';
@@ -51,12 +53,14 @@ struct Index {
 
   private readonly pathStack: NavPathStack = new NavPathStack();
   private readonly tabsController: HdsTabsController = new HdsTabsController();
+  private container: AppContainer | undefined = undefined;
   private preloaded: boolean = false;
 
   @Local session: SessionStore | undefined = undefined;
   @Local repoBrowse: RepoBrowseStore | undefined = undefined;
   @Local activity: ActivityStore | undefined = undefined;
   @Local issueDetail: IssueDetailStore | undefined = undefined;
+  @Local pullRequestDetail: PullRequestDetailStore | undefined = undefined;
   @Local currentTab: number = 0;
   @Local bootstrapped: boolean = false;
   @Local booting: boolean = true;
@@ -96,10 +100,12 @@ struct Index {
       this.bootError = '应用初始化失败，请重试';
       return;
     }
+    this.container = c;
     this.session = c.session;
     this.repoBrowse = c.repoBrowse;
     this.activity = c.activity;
     this.issueDetail = c.issueDetail;
+    this.pullRequestDetail = c.pullRequestDetail;
     try {
       await c.bootstrap();
     } catch (err) {
@@ -110,6 +116,7 @@ struct Index {
       this.repoBrowse = undefined;
       this.activity = undefined;
       this.issueDetail = undefined;
+      this.pullRequestDetail = undefined;
     } finally {
       this.booting = false;
     }
@@ -137,6 +144,16 @@ struct Index {
     if (target !== undefined && kind === RepositoryItemKind.Issue
       && target.owner.trim().length > 0 && target.repo.trim().length > 0 && target.number > 0) {
       const route = AppRoute.issue(target);
+      this.pathStack.pushPathByName(route.name, route.params);
+      return;
+    }
+    if (target !== undefined && kind === RepositoryItemKind.PullRequest
+      && target.owner.trim().length > 0 && target.repo.trim().length > 0 && target.number > 0) {
+      const store = this.pullRequestDetail;
+      if (store !== undefined && this.session !== undefined && this.session.user !== undefined) {
+        store.setCurrentUser(this.session.user.login);
+      }
+      const route = AppRoute.pullRequest(target);
       this.pathStack.pushPathByName(route.name, route.params);
       return;
     }
@@ -171,6 +188,13 @@ struct Index {
     return new RepositoryItemRef('', '', 0);
   }
 
+  private pullRequestRef(param: object): RepositoryItemRef {
+    if (param instanceof PullRequestDetailParams) {
+      return param.ref;
+    }
+    return new RepositoryItemRef('', '', 0);
+  }
+
   private selectTab(index: number): void {
     if (this.currentTab === index) {
       return;
@@ -191,6 +215,17 @@ struct Index {
       IssueDetailPage({
         ref: this.issueRef(param),
         store: this.issueDetail as IssueDetailStore,
+        onBack: () => {
+          this.pathStack.pop();
+        },
+        onOpenWeb: (url: string) => {
+          this.openWeb(url);
+        }
+      })
+    } else if (name === AppRouteName.PullRequestDetail) {
+      PullRequestDetailPage({
+        ref: this.pullRequestRef(param),
+        store: this.pullRequestDetail as PullRequestDetailStore,
         onBack: () => {
           this.pathStack.pop();
         },
@@ -559,6 +594,9 @@ struct Index {
         LoginPage({
           session: this.session as SessionStore,
           onLoggedIn: () => {
+            if (this.container !== undefined) {
+              this.container.syncCollaborationUser();
+            }
             this.currentTab = 0;
           }
         })
