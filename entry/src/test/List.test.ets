@@ -17,6 +17,8 @@ import regressionTest from './Regression.test';
 import collaborationContractTest from './CollaborationContract.test';
 import activityRepositoryTest from './ActivityRepository.test';
 import activityStoreTest from './ActivityStore.test';
+import issueRepositoryTest from './IssueRepository.test';
+import issueDetailStoreTest from './IssueDetailStore.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -38,4 +40,6 @@ export default function testsuite() {
   collaborationContractTest();
   activityRepositoryTest();
   activityStoreTest();
+  issueRepositoryTest();
+  issueDetailStoreTest();
 }

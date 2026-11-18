@@ -87,7 +87,7 @@ export interface TodoRepository {
 export interface IssueRepository {
   issue(ref: RepositoryItemRef, cancel?: CancellationSignal): Promise<IssueDetail>;
   issueComments(ref: RepositoryItemRef, request: PageRequest, cancel?: CancellationSignal): Promise<Page<CollaborationComment>>;
-  addIssueComment(ref: RepositoryItemRef, body: string, cancel?: CancellationSignal): Promise<void>;
+  addIssueComment(ref: RepositoryItemRef, body: string, cancel?: CancellationSignal): Promise<string>;
 }
 
 export interface PullRequestRepository {

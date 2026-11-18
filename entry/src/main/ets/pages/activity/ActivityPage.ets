@@ -13,7 +13,7 @@ import {
   activityKindLabel,
   actorInitial
 } from '../../model/ActivityDisplay';
-import { ActivityItem } from '../../model/CollaborationEntities';
+import { ActivityItem, RepositoryItemKind, RepositoryItemRef } from '../../model/CollaborationEntities';
 import { RepoSummary } from '../../model/Entities';
 import { Dimens, FontSize, Motion, Radius } from '../../components/DesignTokens';
 import { TAB_BAR_CONTENT_INSET } from '../../components/NavigationMetrics';
@@ -23,7 +23,8 @@ import { EmptyView, ErrorView } from '../../components/StatusViews';
 export struct ActivityPage {
   @Param store: ActivityStore = new EmptyActivityStore();
   @Param session: SessionStore = new EmptySessionStore();
-  @Param onOpenRepo: (owner: string, name: string) => void = () => {};
+  @Param onOpenTarget: (target: RepositoryItemRef | undefined,
+    kind: RepositoryItemKind | undefined, repository: string) => void = () => {};
 
   @Local refreshing: boolean = false;
   @Local metrics: DisplayMetrics = DisplayMetrics.instance();
@@ -98,15 +99,7 @@ export struct ActivityPage {
   }
 
   private openItem(item: ActivityItem): void {
-    if (item.target !== undefined) {
-      this.onOpenRepo(item.target.owner, item.target.repo);
-      return;
-    }
-    const slash = item.repository.indexOf('/');
-    if (slash > 0 && slash < item.repository.length - 1) {
-      this.onOpenRepo(item.repository.substring(0, slash),
-        item.repository.substring(slash + 1));
-    }
+    this.onOpenTarget(item.target, item.targetKind, item.repository);
   }
 
   private itemSymbol(item: ActivityItem): Resource {

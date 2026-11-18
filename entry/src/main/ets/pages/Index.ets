@@ -1,4 +1,5 @@
 import { curves } from '@kit.ArkUI';
+import { common, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { DividerMode, hdsEffect, hdsMaterial, HdsNavigation, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -10,10 +11,14 @@ import { Dimens, FontSize, Radius } from '../components/DesignTokens';
 import { GlassCard } from '../components/GlassCard';
 import { glassBorderColor } from '../components/Materials';
 import { ErrorView } from '../components/StatusViews';
+import { AppRoute, AppRouteName, IssueDetailParams } from '../navigation/AppRoute';
+import { RepositoryItemKind, RepositoryItemRef } from '../model/CollaborationEntities';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
 import { LoadState, SessionStore } from '../viewmodel/SessionStore';
 import { ActivityStore } from '../viewmodel/ActivityStore';
+import { IssueDetailStore } from '../viewmodel/IssueDetailStore';
 import { ActivityPage } from './activity/ActivityPage';
+import { IssueDetailPage } from './issue/IssueDetailPage';
 import { NotificationPage } from './notification/NotificationPage';
 import { LoginPage } from './login/LoginPage';
 import { MinePage } from './mine/MinePage';
@@ -21,8 +26,6 @@ import { RepoDetailPage } from './repo/RepoDetailPage';
 import { TodoPage } from './todo/TodoPage';
 
 const HOLDER_KEY: string = 'atomgit_container';
-// 仓库详情路由名，与 navDestination 注册一致
-const REPO_DETAIL_ROUTE: string = 'repoDetail';
 
 class TabSpec {
   readonly label: string;
@@ -53,6 +56,7 @@ struct Index {
   @Local session: SessionStore | undefined = undefined;
   @Local repoBrowse: RepoBrowseStore | undefined = undefined;
   @Local activity: ActivityStore | undefined = undefined;
+  @Local issueDetail: IssueDetailStore | undefined = undefined;
   @Local currentTab: number = 0;
   @Local bootstrapped: boolean = false;
   @Local booting: boolean = true;
@@ -95,6 +99,7 @@ struct Index {
     this.session = c.session;
     this.repoBrowse = c.repoBrowse;
     this.activity = c.activity;
+    this.issueDetail = c.issueDetail;
     try {
       await c.bootstrap();
     } catch (err) {
@@ -104,6 +109,7 @@ struct Index {
       this.session = undefined;
       this.repoBrowse = undefined;
       this.activity = undefined;
+      this.issueDetail = undefined;
     } finally {
       this.booting = false;
     }
@@ -123,7 +129,46 @@ struct Index {
     if (b.state !== LoadState.Ready) {
       return;
     }
-    this.pathStack.pushPathByName(REPO_DETAIL_ROUTE, owner + '/' + name);
+    this.pathStack.pushPathByName(AppRouteName.RepositoryDetail, owner + '/' + name);
+  }
+
+  private async openTarget(target: RepositoryItemRef | undefined,
+    kind: RepositoryItemKind | undefined, repository: string): Promise<void> {
+    if (target !== undefined && kind === RepositoryItemKind.Issue
+      && target.owner.trim().length > 0 && target.repo.trim().length > 0 && target.number > 0) {
+      const route = AppRoute.issue(target);
+      this.pathStack.pushPathByName(route.name, route.params);
+      return;
+    }
+    if (target !== undefined && target.owner.trim().length > 0 && target.repo.trim().length > 0) {
+      await this.openRepo(target.owner, target.repo);
+      return;
+    }
+    const slash = repository.indexOf('/');
+    if (slash > 0 && slash < repository.length - 1) {
+      await this.openRepo(repository.substring(0, slash), repository.substring(slash + 1));
+    }
+  }
+
+  private openWeb(url: string): void {
+    if (url.trim().length === 0) {
+      return;
+    }
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    if (context === undefined) {
+      return;
+    }
+    const want: Want = { action: 'ohos.want.action.viewData', uri: url };
+    context.startAbility(want).catch((err: BusinessError) => {
+      hilog.warn(0x0000, 'AtomGit', 'open web failed: %{public}s', err.message);
+    });
+  }
+
+  private issueRef(param: object): RepositoryItemRef {
+    if (param instanceof IssueDetailParams) {
+      return param.ref;
+    }
+    return new RepositoryItemRef('', '', 0);
   }
 
   private selectTab(index: number): void {
@@ -135,11 +180,22 @@ struct Index {
 
   @Builder
   pageMap(name: string, param: object): void {
-    if (name === REPO_DETAIL_ROUTE) {
+    if (name === AppRouteName.RepositoryDetail) {
       RepoDetailPage({
         store: this.repoBrowse as RepoBrowseStore,
         onBack: () => {
           this.pathStack.pop();
+        }
+      })
+    } else if (name === AppRouteName.IssueDetail) {
+      IssueDetailPage({
+        ref: this.issueRef(param),
+        store: this.issueDetail as IssueDetailStore,
+        onBack: () => {
+          this.pathStack.pop();
+        },
+        onOpenWeb: (url: string) => {
+          this.openWeb(url);
         }
       })
     }
@@ -223,8 +279,9 @@ struct Index {
       ActivityPage({
         store: this.activity as ActivityStore,
         session: this.session as SessionStore,
-        onOpenRepo: (owner: string, name: string) => {
-          this.openRepo(owner, name);
+        onOpenTarget: (target: RepositoryItemRef | undefined, kind: RepositoryItemKind | undefined,
+          repository: string) => {
+          this.openTarget(target, kind, repository);
         }
       })
     }
@@ -387,8 +444,9 @@ struct Index {
             ActivityPage({
               store: this.activity as ActivityStore,
               session: this.session as SessionStore,
-              onOpenRepo: (owner: string, name: string) => {
-                this.openRepo(owner, name);
+              onOpenTarget: (target: RepositoryItemRef | undefined,
+                kind: RepositoryItemKind | undefined, repository: string) => {
+                this.openTarget(target, kind, repository);
               }
             })
           } else if (this.currentTab === 1) {

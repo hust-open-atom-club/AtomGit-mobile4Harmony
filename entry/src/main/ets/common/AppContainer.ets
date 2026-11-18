@@ -2,12 +2,14 @@ import { common } from '@kit.AbilityKit';
 
 import { HttpClient, defaultConfig } from '../network/HttpClient';
 import { ActivityApiRepository } from '../repository/ActivityRepository';
+import { IssueApiRepository } from '../repository/IssueRepository';
 import { AtomGitRepository } from '../repository/AtomGitRepository';
 import { AccountGuard } from '../security/TokenEnvelope';
 import { TokenCipher } from '../security/TokenCipher';
 import { CacheStore } from '../storage/CacheStore';
 import { SettingsStore } from '../storage/SettingsStore';
 import { ActivityStore } from '../viewmodel/ActivityStore';
+import { IssueDetailStore } from '../viewmodel/IssueDetailStore';
 import { SessionStore } from '../viewmodel/SessionStore';
 import { RepoBrowseStore } from '../viewmodel/RepoBrowseStore';
 import { RefreshCoordinator } from './RefreshCoordinator';
@@ -20,6 +22,10 @@ export class AppContainer {
   readonly repoBrowse: RepoBrowseStore;
   /** Activity feed backed by its feature-specific repository port. */
   readonly activity: ActivityStore;
+  /** Issue detail and comment collaboration repository. */
+  readonly issueRepository: IssueApiRepository;
+  /** Shared Issue detail state, reset when the routed reference changes. */
+  readonly issueDetail: IssueDetailStore;
   /** Shared in-process invalidation channel for feature stores. */
   readonly refresh: RefreshCoordinator;
   /** Existing data source for session and repository browsing. */
@@ -40,6 +46,8 @@ export class AppContainer {
     this.session = new SessionStore(this.coreRepository, cipher, cache, settings, guard);
     this.repoBrowse = new RepoBrowseStore(this.coreRepository);
     this.activity = new ActivityStore(new ActivityApiRepository(this.http));
+    this.issueRepository = new IssueApiRepository(this.http);
+    this.issueDetail = new IssueDetailStore(this.issueRepository);
     this.http.setTokenSource(this.session.tokenSource());
     this.settings.open(ctx);
     this.cache.open(ctx);
