@@ -5,7 +5,10 @@ import { OffsetPageRequest, Page } from '../main/ets/common/Pager';
 import { WorkflowRunDto } from '../main/ets/model/Dtos';
 import { RepoEntry, RepoSummary } from '../main/ets/model/Entities';
 import { toCheckRun } from '../main/ets/model/Mappers';
-import { toTransportApiError } from '../main/ets/network/HttpClient';
+import { buildRequestOptions, defaultConfig, isRedirectBlockedError, toTransportApiError }
+  from '../main/ets/network/HttpClient';
+import { HttpMethod } from '../main/ets/network/NetworkPolicy';
+import { RequestSpec, buildHeaders, isAuthenticatedRequest } from '../main/ets/network/RequestSpec';
 import { AccountGuard } from '../main/ets/security/TokenEnvelope';
 import { CacheCleaner } from '../main/ets/storage/StoragePorts';
 import { LoadState, SessionStore } from '../main/ets/viewmodel/SessionStore';
@@ -176,6 +179,53 @@ export default function regressionTest() {
         expect(store.errorMessage).assertEqual('');
         expect(store.state).assertEqual(LoadState.Ready);
       });
+    });
+  });
+
+  describe('RedirectGuard', () => {
+    const USER_PATH = '/user';
+
+    it('authenticated_requests_disable_platform_redirects', 0, () => {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      headers['Authorization'] = 'Bearer token-1';
+      const authed = buildRequestOptions(HttpMethod.GET, undefined, headers, defaultConfig(), true);
+      expect(authed.maxRedirects).assertEqual(0);
+      const anonymous = buildRequestOptions(HttpMethod.GET, undefined,
+        { 'Accept': 'application/json' }, defaultConfig(), false);
+      expect(anonymous.maxRedirects === undefined).assertTrue();
+    });
+
+    it('redirect_guard_ignores_authorization_header_casing', 0, () => {
+      const lower: Record<string, string> = { 'Accept': 'application/json' };
+      lower['authorization'] = 'Bearer token-1';
+      const opts = buildRequestOptions(HttpMethod.GET, undefined, lower, defaultConfig(), true);
+      expect(opts.maxRedirects).assertEqual(0);
+      const anonymous = buildRequestOptions(HttpMethod.GET, undefined, lower, defaultConfig(), false);
+      expect(anonymous.maxRedirects === undefined).assertTrue();
+    });
+
+    it('authenticated_request_is_decided_from_the_spec', 0, () => {
+      const authedSpec = new RequestSpec(HttpMethod.GET, USER_PATH, [], false, true);
+      expect(isAuthenticatedRequest(authedSpec, 'token-1')).assertTrue();
+      expect(buildHeaders(authedSpec, 'token-1')['Authorization']).assertEqual('Bearer token-1');
+      expect(isAuthenticatedRequest(authedSpec, undefined)).assertFalse();
+      expect(isAuthenticatedRequest(authedSpec, '')).assertFalse();
+      const anonSpec = new RequestSpec(HttpMethod.GET, USER_PATH, [], false, false);
+      expect(isAuthenticatedRequest(anonSpec, 'token-1')).assertFalse();
+    });
+
+    it('platform_redirect_blocked_error_is_recognized', 0, () => {
+      class BlockedError {
+        code: number = 2300047;
+        message: string = 'too many redirects';
+      }
+      class OtherError {
+        code: number = 2300006;
+        message: string = 'other';
+      }
+      expect(isRedirectBlockedError(new BlockedError())).assertTrue();
+      expect(isRedirectBlockedError(new OtherError())).assertFalse();
+      expect(isRedirectBlockedError(new ApiError(ApiErrorKind.Network, 0, 0, 'x', '', ''))).assertFalse();
     });
   });
 }

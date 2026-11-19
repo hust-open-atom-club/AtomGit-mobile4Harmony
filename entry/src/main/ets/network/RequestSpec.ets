@@ -47,14 +47,20 @@ export function buildUrl(spec: RequestSpec): string {
 }
 
 // 凭据只注入受信任主机，且绝不放进查询串
+export function isAuthenticatedRequest(spec: RequestSpec, token: string | undefined): boolean {
+  if (!spec.withAuth || token === undefined || token.length === 0) {
+    return false;
+  }
+  return isTrustedUrl(buildUrl(spec));
+}
+
 export function buildHeaders(spec: RequestSpec, token: string | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
   headers['Accept'] = 'application/json';
   if (spec.body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
-  const url = buildUrl(spec);
-  if (spec.withAuth && token !== undefined && token.length > 0 && isTrustedUrl(url)) {
+  if (isAuthenticatedRequest(spec, token) && token !== undefined) {
     headers['Authorization'] = 'Bearer ' + token;
   }
   return headers;

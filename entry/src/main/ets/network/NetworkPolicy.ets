@@ -168,6 +168,12 @@ export const TRUSTED_HOSTS: string[] = [
   'api.atomgit.com'
 ];
 
+export const REDIRECT_BLOCKED_CODE: number = 2300047;
+
+export function isRedirectBlockedCode(code: number): boolean {
+  return code === REDIRECT_BLOCKED_CODE;
+}
+
 export function extractHost(url: string): string {
   const schemeIdx: number = url.indexOf('://');
   if (schemeIdx < 0) {

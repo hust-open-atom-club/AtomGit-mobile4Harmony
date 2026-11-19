@@ -5,7 +5,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { ApiError, ApiErrorKind, buildApiError } from '../common/ApiError';
 import { CancellationSignal } from '../common/Cancellation';
 import { errorSummary, redactUrl } from '../common/Redact';
-import { RequestSpec, buildHeaders, buildUrl } from './RequestSpec';
+import { RequestSpec, buildHeaders, buildUrl, isAuthenticatedRequest } from './RequestSpec';
 import { HttpPort } from './HttpPort';
 import {
   BackoffPolicy,
@@ -13,8 +13,10 @@ import {
   HttpMethod,
   MAX_RESPONSE_BYTES,
   MAX_RETRIES,
+  REDIRECT_BLOCKED_CODE,
   RetryContext,
   computeDelayMs,
+  isRedirectBlockedCode,
   isTrustedUrl,
   parseRetryAfter,
   shouldRetry
@@ -90,6 +92,38 @@ export interface TokenSource {
   currentToken(): string | undefined;
 }
 
+export function isRedirectBlockedError(err: Object): boolean {
+  if (err instanceof ApiError) {
+    return false;
+  }
+  const be = err as BusinessError;
+  if (be === undefined || be === null) {
+    return false;
+  }
+  return isRedirectBlockedCode(be.code);
+}
+
+export function buildRequestOptions(method: HttpMethod, body: string | undefined,
+  headers: Record<string, string>, config: HttpConfig,
+  authenticated: boolean): http.HttpRequestOptions {
+  const options: http.HttpRequestOptions = {
+    method: toRequestMethod(method),
+    header: headers,
+    expectDataType: http.HttpDataType.STRING,
+    usingCache: false,
+    connectTimeout: config.connectTimeoutMs,
+    readTimeout: config.readTimeoutMs,
+    maxLimit: config.maxBytes
+  };
+  if (body !== undefined) {
+    options.extraData = body;
+  }
+  if (authenticated) {
+    options.maxRedirects = 0;
+  }
+  return options;
+}
+
 export class HttpClient implements HttpPort {
   private readonly config: HttpConfig;
   private tokenSource: TokenSource | undefined;
@@ -106,6 +140,7 @@ export class HttpClient implements HttpPort {
     const url = buildUrl(spec);
     const token = this.tokenSource === undefined ? undefined : this.tokenSource.currentToken();
     const headers = buildHeaders(spec, token);
+    const authenticated: boolean = isAuthenticatedRequest(spec, token);
 
     let attempt = 0;
     for (;;) {
@@ -115,7 +150,7 @@ export class HttpClient implements HttpPort {
       let lastError: ApiError | undefined = undefined;
       let retryAfter: string | undefined = undefined;
       try {
-        const res = await this.once(spec, headers, url, cancel);
+        const res = await this.once(spec, headers, url, authenticated, cancel);
         return res;
       } catch (err) {
         lastError = this.asApiError(err, url);
@@ -146,21 +181,10 @@ export class HttpClient implements HttpPort {
   }
 
   private async once(spec: RequestSpec, headers: Record<string, string>, url: string,
-    cancel?: CancellationSignal): Promise<HttpResult> {
+    authenticated: boolean, cancel?: CancellationSignal): Promise<HttpResult> {
     const client = http.createHttp();
     try {
-      const options: http.HttpRequestOptions = {
-        method: toRequestMethod(spec.method),
-        header: headers,
-        expectDataType: http.HttpDataType.STRING,
-        usingCache: false,
-        connectTimeout: this.config.connectTimeoutMs,
-        readTimeout: this.config.readTimeoutMs,
-        maxLimit: this.config.maxBytes
-      };
-      if (spec.body !== undefined) {
-        options.extraData = spec.body;
-      }
+      const options = buildRequestOptions(spec.method, spec.body, headers, this.config, authenticated);
       const resp = await client.request(url, options);
       const status = typeof resp.responseCode === 'number' ? resp.responseCode : 0;
       const rawResult = resp.result;
@@ -183,6 +207,10 @@ export class HttpClient implements HttpPort {
       }
       if (cancel !== undefined && cancel.isCanceled()) {
         throw new ApiError(ApiErrorKind.Canceled, 0, 0, 'canceled', '', redactUrl(url));
+      }
+      if (authenticated && isRedirectBlockedError(err)) {
+        throw new ApiError(ApiErrorKind.UnsafeRequest, 0, REDIRECT_BLOCKED_CODE,
+          'redirects are not followed on authenticated requests', '', redactUrl(url));
       }
       throw this.asApiError(err, url);
     } finally {
