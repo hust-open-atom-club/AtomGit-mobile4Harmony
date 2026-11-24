@@ -8,8 +8,7 @@ AtomGit (atomgit.com) provides repository hosting, issue tracking, pull requests
 | --- | --- |
 | Bundle name | `com.atomgit.mobile` |
 | Stack | ArkTS + ArkUI, Stage model, MVVM + Repository |
-| Target | HarmonyOS phones, tablets and 2-in-1, HarmonyOS SDK 6.1.1 (API 24) |
-| Runtime fallbacks | Immersive materials and `PATCH` requests need API 26; below that the app draws blurred glass surfaces and rejects `PATCH` with `405` |
+| Target | HarmonyOS phones, tablets and 2-in-1, HarmonyOS SDK 26.0.0 (API 26) |
 | API | AtomGit OpenAPI v5 (`https://api.atomgit.com/api/v5`), Actions v8 |
 | API docs | [AtomGit OpenAPI](https://docs.atomgit.com/docs/apis/) |
 | Status | Activity feed implemented; remaining collaboration features in progress |
