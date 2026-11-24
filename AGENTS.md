@@ -8,7 +8,7 @@ The authoritative description of the work is the task document in
 
 ## Build and Test
 
-Development uses DevEco Studio 6.x with the HarmonyOS SDK 6.1.1 (API 24).
+Development uses DevEco Studio with the HarmonyOS SDK 26.0.0 (API 26).
 
 | Command | What it does |
 | --- | --- |
